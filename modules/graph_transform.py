@@ -137,7 +137,6 @@ def subgraph(data, aug_ratio):
 
     idx_drop = [n for n in range(node_num) if not n in idx_sub]
     idx_nondrop = idx_sub
-    print(idx_nondrop)
     data.x = data.x[idx_nondrop]
     idx_dict = {idx_nondrop[n]:n for n in list(range(len(idx_nondrop)))}
 
@@ -160,7 +159,6 @@ def mask_nodes(data, aug_ratio):
     mask_num = int(node_num * aug_ratio)
 
     token = data.x.mean(dim=0)
-    print(token)
     idx_mask = np.random.choice(node_num, mask_num, replace=False)
     data.x[idx_mask] = torch.tensor(token, dtype=torch.float32)
 

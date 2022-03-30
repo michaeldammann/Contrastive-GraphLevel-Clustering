@@ -9,12 +9,14 @@ from utils import yaml_config_hook, save_model
 from torch.utils import data
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
+import random
 
 
 def train():
     loss_epoch = 0
     for step, ((x_i, x_j), _) in enumerate(data_loader):
         optimizer.zero_grad()
+        print(x_i.shape)
         x_i = x_i.to('cuda')
         x_j = x_j.to('cuda')
         z_i, z_j, c_i, c_j = model(x_i, x_j)
@@ -31,6 +33,10 @@ def train():
 
 
 if __name__ == "__main__":
+    random.seed(42)
+    torch.manual_seed(42)
+    np.random.seed(42)
+
     parser = argparse.ArgumentParser()
     config = yaml_config_hook("config/config.yaml")
     for k, v in config.items():
