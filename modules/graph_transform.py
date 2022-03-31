@@ -187,19 +187,5 @@ def graph_transform_all(data, drop_nodes_ratio=0.2, permute_edges_ratio=0.2, sub
 
     return data_i, data_j
 
-'''
-print(data)
-print(data.x)
-subgraph=mask_nodes(deepcopy(data), 0.2)
-print(subgraph.x)
 
-
-g = torch_geometric.utils.to_networkx(data, to_undirected=True)
-nx.draw(g)
-plt.show()
-
-g = torch_geometric.utils.to_networkx(subgraph, to_undirected=True)
-nx.draw(g)
-plt.show()
-'''
 
