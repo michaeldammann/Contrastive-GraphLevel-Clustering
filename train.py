@@ -5,19 +5,23 @@ import torchvision
 import argparse
 from modules import transform, resnet, network, contrastive_loss
 from modules.GraphTransform_All import GraphTransform_All
+from modules.GraphTransform_NoNodeMask import GraphTransform_NoNodeMask
 from modules.gcn import GCN
 from utils import yaml_config_hook, save_model
 from torch.utils import data
 from torch_geometric.datasets import TUDataset
 from torch_geometric.loader import DataLoader
+from modules.graph_utils import max_degree_undirected
+import torch_geometric
 import random
-
+from copy import deepcopy
 
 def train():
     loss_epoch = 0
     for step in range(len(data_loader_i)):
         x_i = next(data_loader_i)
         x_j = next(data_loader_j)
+        #print(x_i.x.float(), x_i.edge_index, x_i.batch)
         optimizer.zero_grad()
         x_i = x_i.to('cuda')
         x_j = x_j.to('cuda')
@@ -49,14 +53,22 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+    dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
+    print(max_degree_undirected(dataset_pretransform))
+    dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
+    class_num = dataset.num_classes
+
+    '''
     # prepare data
     if args.dataset == "NCI1":
-        dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name="NCI1")
+        dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
         class_num = dataset.num_classes
+        print(class_num)
     else:
         raise NotImplementedError
+    '''
 
-    GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.2, permute_edges_ratio=0.2, mask_nodes_ratio=0.2, batch_size=args.batch_size)
+    GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1, mask_nodes_ratio=0.1, batch_size=args.batch_size)
 
     # initialize model
     gnn = GCN(dataset.num_features)
@@ -75,12 +87,15 @@ if __name__ == "__main__":
         loss_device)
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)
     # train
+    #_,_,data_i, data_j = GraphTransformer.generate_augmentations_i_j(dataset)
     for epoch in range(args.start_epoch, args.epochs):
-        data_loader_i, data_loader_j = GraphTransformer.generate_augmentations_i_j(dataset)
+        data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
+        #data_loader_i, data_loader_j = DataLoader(data_i, batch_size=args.batch_size), DataLoader(data_j, batch_size=args.batch_size)
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)
         lr = optimizer.param_groups[0]["lr"]
         loss_epoch = train()
         if epoch % 10 == 0:
+            print('Saving')
             save_model(args, model, optimizer, epoch)
         print(f"Epoch [{epoch}/{args.epochs}]\t Loss: {loss_epoch / len(data_loader_i)}")
     save_model(args, model, optimizer, args.epochs)

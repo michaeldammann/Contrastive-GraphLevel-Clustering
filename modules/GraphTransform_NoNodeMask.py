@@ -4,19 +4,17 @@ import numpy as np
 from copy import deepcopy
 import random
 from torch_geometric.loader import DataLoader
-from torch_geometric.data import Data
 
-class GraphTransform_All:
-  def __init__(self, drop_nodes_ratio, subgraph_ratio, permute_edges_ratio, mask_nodes_ratio, batch_size):
+class GraphTransform_NoNodeMask:
+  def __init__(self, drop_nodes_ratio, subgraph_ratio, permute_edges_ratio, batch_size):
     self.drop_nodes_ratio = drop_nodes_ratio
     self.subgraph_ratio = subgraph_ratio
     self.permute_edges_ratio = permute_edges_ratio
-    self.mask_nodes_ratio = mask_nodes_ratio
     self.batch_size = batch_size
 
   def drop_nodes(self, data, aug_ratio):
-      node_num, _ = data.x.size()
 
+      node_num, _ = data.x.size()
       _, edge_num = data.edge_index.size()
       drop_num = int(node_num * aug_ratio)
 
@@ -33,22 +31,12 @@ class GraphTransform_All:
       adj = adj[idx_nondrop, :][:, idx_nondrop]
       edge_index = adj.nonzero().t()
 
-      new_data = Data(x=data.x[idx_nondrop], edge_index=edge_index, y=data.y, num_nodes=data.x[idx_nondrop].size()[0])
-
-      '''
       try:
-          data = Data(x=data.x[idx_nondrop], edge_index=edge_index)
-
-          #data.edge_index = edge_index
-          #data.x = data.x[idx_nondrop]
-          
+          data.edge_index = edge_index
+          data.x = data.x[idx_nondrop]
       except:
           data = data
-      '''
-
-      #data.num_nodes = data.x.size()
-
-      return new_data
+      return data
 
   def permute_edges(self, data, aug_ratio):
 
@@ -66,14 +54,12 @@ class GraphTransform_All:
       edge_index = np.concatenate(
           (edge_index[:, np.random.choice(edge_num, (edge_num - permute_num), replace=False)], idx_add), axis=1)
       data.edge_index = torch.tensor(edge_index)
-      new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
-      #data.num_nodes = data.x.size()
-      return new_data
+
+      return data
 
   def subgraph(self, data, aug_ratio):
 
       node_num, _ = data.x.size()
-
       _, edge_num = data.edge_index.size()
       sub_num = int(node_num * aug_ratio)
 
@@ -109,21 +95,19 @@ class GraphTransform_All:
 
       # edge_index = [[idx_dict[edge_index[0, n]], idx_dict[edge_index[1, n]]] for n in range(edge_num) if (not edge_index[0, n] in idx_drop) and (not edge_index[1, n] in idx_drop)] + [[n, n] for n in idx_nondrop]
       data.edge_index = edge_index
-      new_data = Data(x=deepcopy(data.x), edge_index=deepcopy(edge_index), y=data.y, num_nodes=data.x.size()[0])
-      #data.num_nodes = data.x.size()
 
-      return new_data
+      return data
 
   def mask_nodes(self, data, aug_ratio):
+      print(data)
       node_num, feat_dim = data.x.size()
       mask_num = int(node_num * aug_ratio)
 
       token = data.x.mean(dim=0)
       idx_mask = np.random.choice(node_num, mask_num, replace=False)
       data.x[idx_mask] = torch.tensor(token, dtype=torch.float32)
-      new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
-      #data.num_nodes = data.x.size()
-      return new_data
+
+      return data
 
   def generate_augmentations_i_j(self, dataset):
       all_data = [elem for elem in dataset]
@@ -136,26 +120,22 @@ class GraphTransform_All:
       all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
 
       for idx, elem in enumerate(all_data):
-          ri, rj = np.random.randint(5), np.random.randint(5)
+          ri, rj = np.random.randint(4), np.random.randint(4)
           if ri == 0:
-              all_data_i[idx]=self.drop_nodes(all_data_i[idx], self.drop_nodes_ratio)
+              self.drop_nodes(all_data_i[idx], self.drop_nodes_ratio)
           elif ri == 1:
-              all_data_i[idx]=self.subgraph(all_data_i[idx], self.subgraph_ratio)
+              self.subgraph(all_data_i[idx], self.subgraph_ratio)
           elif ri == 2:
-              all_data_i[idx]=self.permute_edges(all_data_i[idx], self.permute_edges_ratio)
-          elif ri == 3:
-              all_data_i[idx]=self.mask_nodes(all_data_i[idx], self.mask_nodes_ratio)
-          # elif ri == 4: identity
+              self.permute_edges(all_data_i[idx], self.permute_edges_ratio)
+          # elif ri == 3: identity
 
           if rj == 0:
-              all_data_j[idx]=self.drop_nodes(all_data_j[idx], self.drop_nodes_ratio)
+              self.drop_nodes(all_data_j[idx], self.drop_nodes_ratio)
           elif rj == 1:
-              all_data_j[idx]=self.subgraph(all_data_j[idx], self.subgraph_ratio)
+              self.subgraph(all_data_j[idx], self.subgraph_ratio)
           elif rj == 2:
-              all_data_j[idx]=self.permute_edges(all_data_j[idx], self.permute_edges_ratio)
-          elif rj == 3:
-              all_data_j[idx]=self.mask_nodes(all_data_j[idx], self.mask_nodes_ratio)
-          # elif rj == 4: identity
+              self.permute_edges(all_data_j[idx], self.permute_edges_ratio)
+          # elif rj == 3: identity
 
-      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size))
 
