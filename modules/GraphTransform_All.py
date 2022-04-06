@@ -33,22 +33,22 @@ class GraphTransform_All:
       adj = adj[idx_nondrop, :][:, idx_nondrop]
       edge_index = adj.nonzero().t()
 
-      new_data = Data(x=data.x[idx_nondrop], edge_index=edge_index, y=data.y, num_nodes=data.x[idx_nondrop].size()[0])
+      #new_data = Data(x=data.x[idx_nondrop], edge_index=edge_index, y=data.y, num_nodes=data.x[idx_nondrop].size()[0])
 
-      '''
+
       try:
-          data = Data(x=data.x[idx_nondrop], edge_index=edge_index)
+          #data = Data(x=data.x[idx_nondrop], edge_index=edge_index)
 
-          #data.edge_index = edge_index
-          #data.x = data.x[idx_nondrop]
+          data.edge_index = edge_index
+          data.x = data.x[idx_nondrop]
           
       except:
           data = data
-      '''
+
 
       #data.num_nodes = data.x.size()
 
-      return new_data
+      return data
 
   def permute_edges(self, data, aug_ratio):
 
@@ -66,9 +66,9 @@ class GraphTransform_All:
       edge_index = np.concatenate(
           (edge_index[:, np.random.choice(edge_num, (edge_num - permute_num), replace=False)], idx_add), axis=1)
       data.edge_index = torch.tensor(edge_index)
-      new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
+      #new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
       #data.num_nodes = data.x.size()
-      return new_data
+      return data
 
   def subgraph(self, data, aug_ratio):
 
@@ -109,10 +109,10 @@ class GraphTransform_All:
 
       # edge_index = [[idx_dict[edge_index[0, n]], idx_dict[edge_index[1, n]]] for n in range(edge_num) if (not edge_index[0, n] in idx_drop) and (not edge_index[1, n] in idx_drop)] + [[n, n] for n in idx_nondrop]
       data.edge_index = edge_index
-      new_data = Data(x=deepcopy(data.x), edge_index=deepcopy(edge_index), y=data.y, num_nodes=data.x.size()[0])
+      #new_data = Data(x=deepcopy(data.x), edge_index=deepcopy(edge_index), y=data.y, num_nodes=data.x.size()[0])
       #data.num_nodes = data.x.size()
 
-      return new_data
+      return data
 
   def mask_nodes(self, data, aug_ratio):
       node_num, feat_dim = data.x.size()
@@ -121,9 +121,9 @@ class GraphTransform_All:
       token = data.x.mean(dim=0)
       idx_mask = np.random.choice(node_num, mask_num, replace=False)
       data.x[idx_mask] = torch.tensor(token, dtype=torch.float32)
-      new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
+      #new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
       #data.num_nodes = data.x.size()
-      return new_data
+      return data
 
   def generate_augmentations_i_j(self, dataset):
       all_data = [elem for elem in dataset]
@@ -156,6 +156,37 @@ class GraphTransform_All:
           elif rj == 3:
               all_data_j[idx]=self.mask_nodes(all_data_j[idx], self.mask_nodes_ratio)
           # elif rj == 4: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def apply_aug(self, data, randint):
+      if randint == 0:
+          return self.drop_nodes(data, self.drop_nodes_ratio)
+      elif randint == 1:
+          return self.subgraph(data, self.subgraph_ratio)
+      elif randint == 2:
+          return self.permute_edges(data, self.permute_edges_ratio)
+      elif randint == 3:
+          return self.mask_nodes(data, self.mask_nodes_ratio)
+      elif randint == 4:
+          return data
+
+  def generate_augmentations_i_j_fast(self, dataset):
+
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      ri_list = [np.random.randint(5) for i in range(len(all_data))]
+      rj_list = [np.random.randint(5) for j in range(len(all_data))]
+
+      all_data_i = [self.apply_aug(data_aug_tuple[0], data_aug_tuple[1]) for data_aug_tuple in zip(all_data_i, ri_list)]
+      all_data_j = [self.apply_aug(data_aug_tuple[0], data_aug_tuple[1]) for data_aug_tuple in zip(all_data_j, rj_list)]
 
       return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
 

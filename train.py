@@ -15,6 +15,9 @@ from modules.graph_utils import max_degree_undirected
 import torch_geometric
 import random
 from copy import deepcopy
+from torch.utils.data import ConcatDataset
+from torch_geometric.datasets import MNISTSuperpixels
+import time
 
 def train():
     loss_epoch = 0
@@ -53,9 +56,20 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-    print(max_degree_undirected(dataset_pretransform))
-    dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
+    if args.dataset == "MNISTSuperpixels":
+        dataset = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/MNISTSuperpixels', train=True)
+        '''
+        dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
+        dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
+        dataset = ConcatDataset([dataset_train, dataset_test])
+        dataset.num_classes = dataset_train.num_classes
+        dataset.num_features = dataset_train.num_features
+        '''
+    else:
+        dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
+        dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset,
+                            transform=torch_geometric.transforms.OneHotDegree(
+                                max_degree=max_degree_undirected(dataset_pretransform)))
     class_num = dataset.num_classes
 
     '''
@@ -89,7 +103,14 @@ if __name__ == "__main__":
     # train
     #_,_,data_i, data_j = GraphTransformer.generate_augmentations_i_j(dataset)
     for epoch in range(args.start_epoch, args.epochs):
+        '''
+        c = list(zip(data_i, data_j))
+        random.shuffle(c)
+        data_i, data_j = zip(*c)
+        '''
+        start_time = time.time()
         data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
+        print("--- %s seconds ---" % (time.time() - start_time))
         #data_loader_i, data_loader_j = DataLoader(data_i, batch_size=args.batch_size), DataLoader(data_j, batch_size=args.batch_size)
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)
         lr = optimizer.param_groups[0]["lr"]

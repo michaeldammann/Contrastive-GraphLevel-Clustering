@@ -8,9 +8,10 @@ from modules.GraphTransform_All import GraphTransform_All
 from modules.gcn import GCN
 from modules.graph_utils import max_degree_undirected
 from utils import yaml_config_hook, save_model
-from torch.utils import data
+from torch.utils.data import ConcatDataset
 import torch_geometric
 from torch_geometric.datasets import TUDataset
+from torch_geometric.datasets import MNISTSuperpixels
 from torch_geometric.loader import DataLoader
 import random
 import umap
@@ -27,14 +28,22 @@ for k, v in config.items():
     parser.add_argument(f"--{k}", default=v, type=type(v))
 args = parser.parse_args()
 
-dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
+if args.dataset == "MNISTSuperpixels":
+    dataset = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
+    '''
+    dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
+    dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
+    dataset = ConcatDataset([dataset_train, dataset_test])
+    '''
+else:
+    dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
+    dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
 class_num = dataset.num_classes
 print('Dataset loaded')
 
 gnn = GCN(dataset.num_features)
 model = network.Network(gnn, args.feature_dim, class_num)
-model_fp = os.path.join("/home/md/PycharmProjects/CC4Graphs/save/COLLAB_test", "checkpoint_30.tar".format(args.start_epoch))
+model_fp = os.path.join("/home/md/PycharmProjects/CC4Graphs/save/COLLAB_test", "checkpoint_120.tar".format(args.start_epoch))
 model = load_model(model_fp, model)
 print('Model loaded')
 
@@ -90,7 +99,7 @@ embedding = reducer.fit_transform(all_z_i_np)
 scatter_x = embedding[:, 0]
 scatter_y = embedding[:, 1]
 group = all_y
-cdict = {0: 'red', 1: 'blue', 2: 'green'}
+cdict = {0: 'red', 1: 'blue', 2: 'green', 3: 'magenta', 4: 'grey', 5: 'black', 6:'yellow', 7:'orange', 8:'darkgoldenrod', 9:'darkviolet'}
 
 fig, ax = plt.subplots()
 for g in np.unique(group):
