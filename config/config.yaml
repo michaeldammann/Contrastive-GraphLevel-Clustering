@@ -4,20 +4,24 @@ workers: 8
 dataset_dir: "./datasets"
 
 # train options
-batch_size: 256
+batch_size: 512
 image_size: 224
-start_epoch: 200
+start_epoch: 0
 epochs: 1000
-dataset: "MNISTSuperpixels" # reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
+dataset: "TWITTER-Real-Graph-Partial" #ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
 
 # model options
 resnet: "ResNet34" # ResNet18 / ResNet34 / ResNet50
 feature_dim: 128
-model_path: "save/COLLAB_test"
-reload: True
+model_path: "save/CeiloGraphs_test"
+reload: False
 
 # loss options
 learning_rate: 0.001 #0.0003
 weight_decay: 0.
 instance_temperature: 0.5 #0.5
 cluster_temperature: 1.0 #1.0
+
+# ceilo options
+graphpicklepath: "/home/rigel/MDammann/PycharmProjects/CC4Graphs/ceilo_graph_generation/graphs_processed.pickle"
+ceilo_n_clusters: 8

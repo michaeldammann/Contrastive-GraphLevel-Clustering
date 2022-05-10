@@ -5,6 +5,7 @@ from copy import deepcopy
 import random
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
+import inspect
 
 class GraphTransform_All:
   def __init__(self, drop_nodes_ratio, subgraph_ratio, permute_edges_ratio, mask_nodes_ratio, batch_size):
@@ -118,7 +119,11 @@ class GraphTransform_All:
       node_num, feat_dim = data.x.size()
       mask_num = int(node_num * aug_ratio)
 
+      data.x=data.x.type('torch.FloatTensor')
+      #temp_tensor = data.x.type('torch.FloatTensor')
+      #token = temp_tensor.mean(dim=0)
       token = data.x.mean(dim=0)
+
       idx_mask = np.random.choice(node_num, mask_num, replace=False)
       data.x[idx_mask] = torch.tensor(token, dtype=torch.float32)
       #new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
@@ -173,6 +178,7 @@ class GraphTransform_All:
 
   def generate_augmentations_i_j_fast(self, dataset):
 
+
       all_data = [elem for elem in dataset]
       random.shuffle(all_data)
 
@@ -185,8 +191,10 @@ class GraphTransform_All:
       ri_list = [np.random.randint(5) for i in range(len(all_data))]
       rj_list = [np.random.randint(5) for j in range(len(all_data))]
 
+
       all_data_i = [self.apply_aug(data_aug_tuple[0], data_aug_tuple[1]) for data_aug_tuple in zip(all_data_i, ri_list)]
       all_data_j = [self.apply_aug(data_aug_tuple[0], data_aug_tuple[1]) for data_aug_tuple in zip(all_data_j, rj_list)]
+
 
       return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
 

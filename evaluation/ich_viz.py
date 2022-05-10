@@ -29,21 +29,21 @@ for k, v in config.items():
 args = parser.parse_args()
 
 if args.dataset == "MNISTSuperpixels":
-    dataset = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
+    dataset = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', train=True)
     '''
     dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
     dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
     dataset = ConcatDataset([dataset_train, dataset_test])
     '''
 else:
-    dataset_pretransform = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-    dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
+    dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
+    dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
 class_num = dataset.num_classes
 print('Dataset loaded')
 
 gnn = GCN(dataset.num_features)
 model = network.Network(gnn, args.feature_dim, class_num)
-model_fp = os.path.join("/home/md/PycharmProjects/CC4Graphs/save/COLLAB_test", "checkpoint_120.tar".format(args.start_epoch))
+model_fp = os.path.join("/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/COLLAB_test", "checkpoint_30.tar".format(args.start_epoch))
 model = load_model(model_fp, model)
 print('Model loaded')
 
