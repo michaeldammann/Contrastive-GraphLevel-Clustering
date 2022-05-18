@@ -35,7 +35,7 @@ elif dataset == 'ogbg-molhiv':
 
 elif dataset == 'TWITTER-Real-Graph-Partial':
     dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='TWITTER-Real-Graph-Partial')
-    loader = DataLoader(dataset, batch_size=1, shuffle=True)
+    loader = DataLoader(dataset, batch_size=1, shuffle=False)
     all_graphs_t = []
     it = iter(loader)
     for data_b in it:
