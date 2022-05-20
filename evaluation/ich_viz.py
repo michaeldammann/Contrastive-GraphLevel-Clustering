@@ -16,6 +16,10 @@ from torch_geometric.loader import DataLoader
 import random
 import umap
 from matplotlib import pyplot as plt
+from datasets.CeiloGraphs import CeiloGraphs
+from ogb.graphproppred import PygGraphPropPredDataset
+from graph_helper.DatasetLoader import DatasetLoader
+from evaluation import get_y_preds
 
 def load_model(model_fp, model):
     checkpoint = torch.load(model_fp)
@@ -28,27 +32,49 @@ for k, v in config.items():
     parser.add_argument(f"--{k}", default=v, type=type(v))
 args = parser.parse_args()
 
-if args.dataset == "MNISTSuperpixels":
-    dataset = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', train=True)
-    '''
-    dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
-    dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
-    dataset = ConcatDataset([dataset_train, dataset_test])
-    '''
+if args.dataset == "CeiloGraphs":
+    dataset = CeiloGraphs(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                          graphpicklepath=args.graphpicklepath)
+    class_num = args.ceilo_n_clusters
+    num_features = dataset.num_features
+elif args.dataset == 'ogbg-molhiv':
+    dataset = PygGraphPropPredDataset(name='ogbg-molhiv')
+    class_num = 2
+    num_features = dataset.num_features
+elif args.dataset == 'TWITTER-Real-Graph-Partial':
+    dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
+    class_num = dataset.num_classes
+    num_features = dataset.num_features
+elif args.dataset == "MNISTSuperpixels":
+    dataset = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/MNISTSuperpixels',
+                               train=True)
+    class_num = dataset.num_classes
+    num_features = dataset.num_features
+elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg"]:
+    dl = DatasetLoader()
+    dataset, y_p = dl.load_dataset_ptg(args.dataset)
+    GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
+                                          mask_nodes_ratio=0.2, batch_size=args.batch_size)
+    class_num = len(np.unique(y_p))
+    num_features = len(dataset[0].x[0].cpu().detach().numpy())
+    print(class_num, num_features)
 else:
     dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-    dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset, transform=torch_geometric.transforms.OneHotDegree(max_degree=max_degree_undirected(dataset_pretransform)))
-class_num = dataset.num_classes
+    dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset,
+                        transform=torch_geometric.transforms.OneHotDegree(
+                            max_degree=max_degree_undirected(dataset_pretransform)))
+    class_num = dataset.num_classes
+    num_features = dataset.num_features
 print('Dataset loaded')
 
-gnn = GCN(dataset.num_features)
+gnn = GCN(num_features)
 model = network.Network(gnn, args.feature_dim, class_num)
-model_fp = os.path.join("/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/COLLAB_test", "checkpoint_30.tar".format(args.start_epoch))
+model_fp = os.path.join("/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/constructedgraphs_2", "checkpoint_250.tar".format(args.start_epoch))
 model = load_model(model_fp, model)
 print('Model loaded')
 
 all_data = [elem for elem in dataset]
-all_data = all_data[0:30000]
+#all_data = all_data[0:30000]
 data_loader=DataLoader(all_data, batch_size=16)
 data_loader=iter(data_loader)
 print('Dataloader initialized')
@@ -80,17 +106,10 @@ print(all_y[0:100])
 
 from sklearn.metrics import normalized_mutual_info_score as nmi, accuracy_score
 print("NMI")
-all_clusters_inverted=[]
-for elem in all_clusters:
-    if elem == 0:
-        all_clusters_inverted.append(1)
-    else:
-        all_clusters_inverted.append(0)
-all_clusters_inverted=np.array(all_clusters_inverted)
-print(all_clusters)
-print(all_clusters_inverted)
+
 print(nmi(all_y, all_clusters))
-print(accuracy_score(all_y, all_clusters))
+all_clusters_adjusted = get_y_preds(all_y, all_clusters, len(set(all_y)))
+print(accuracy_score(all_clusters_adjusted, all_y))
 
 reducer = umap.UMAP()
 embedding = reducer.fit_transform(all_z_i_np)

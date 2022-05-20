@@ -5,16 +5,25 @@ import pickle
 #graph2: 15-20 nodes, features [0,0,0,1,1,1], knotengrad 6-8
 #zuerst path für zusammenhang, dann hinzufügen
 
+random.seed(42)
+
+
 graph1_min_max_nodes = (5,11)
-graph1_min_max_nodedeg = (1,3)
-graph2_min_max_nodes = (15,21)
-graph2_min_max_nodedeg = (6,8)
+graph1_min_max_nodedeg = (1,4)
+graph2_min_max_nodes = (15,26)
+graph2_min_max_nodedeg = (5,8)
+
+def node_feat_choice(pref):
+    if pref:
+        return random.choices([0,1], [0.5, 0.5])[0]
+    else:
+        return random.choices([0, 1], [0.6, 0.4])[0]
 
 def node_feats(graph_class):
     if graph_class == 0:
-        return [randrange(2), randrange(2), randrange(2), 0,0,0]
+        return [node_feat_choice(True), node_feat_choice(True), node_feat_choice(True), node_feat_choice(False),node_feat_choice(False),node_feat_choice(False)]
     elif graph_class == 1:
-        return [0, 0, 0, randrange(2), randrange(2), randrange(2)]
+        return [node_feat_choice(False), node_feat_choice(False), node_feat_choice(False), node_feat_choice(True), node_feat_choice(True), node_feat_choice(True)]
 
 def not_neighbors(x,edge_index, node_idx):
     all_node_idcs =  [i for i in range(len(x))]
@@ -67,7 +76,7 @@ for i in range(30000):
 for i in range(30000):
     all_graphs.append(generate_graph(1))
 
-with open('constructedgraphs.pkl', 'wb') as handle:
+with open('constructedgraphs_2.pkl', 'wb') as handle:
     pickle.dump(all_graphs, handle)
 
 

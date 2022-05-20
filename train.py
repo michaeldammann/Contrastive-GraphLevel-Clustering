@@ -22,6 +22,7 @@ from torch_geometric.datasets import MNISTSuperpixels, GNNBenchmarkDataset,  TUD
 import time
 from datasets.CeiloGraphs import CeiloGraphs
 from ogb.graphproppred import PygGraphPropPredDataset
+from graph_helper.DatasetLoader import DatasetLoader
 
 def train():
     loss_epoch = 0
@@ -31,8 +32,8 @@ def train():
 
         #print(x_i.x.float(), x_i.edge_index, x_i.batch)
         optimizer.zero_grad()
-        x_i = x_i.to('cpu')
-        x_j = x_j.to('cpu')
+        x_i = x_i.to('cuda')
+        x_j = x_j.to('cuda')
         z_i, z_j, c_i, c_j = model(x_i, x_j)
         loss_instance = criterion_instance(z_i, z_j)
         loss_cluster = criterion_cluster(c_i, c_j)
@@ -67,21 +68,23 @@ if __name__ == "__main__":
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
                                               mask_nodes_ratio=0.1, batch_size=args.batch_size)
         class_num = args.ceilo_n_clusters
+        num_features = dataset.num_features
     elif args.dataset == 'ogbg-molhiv':
         dataset = PygGraphPropPredDataset(name='ogbg-molhiv')
         GraphTransformer = GraphTransform_All_molhiv(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
                                               mask_nodes_ratio=0.1, batch_size=args.batch_size)
         class_num = 2
+        num_features = dataset.num_features
     elif args.dataset == 'TWITTER-Real-Graph-Partial':
         dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
                                                   mask_nodes_ratio=0.1, batch_size=args.batch_size)
         class_num = dataset.num_classes
+        num_features = dataset.num_features
     elif args.dataset == "MNISTSuperpixels":
         dataset = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/MNISTSuperpixels', train=True)
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
                                               mask_nodes_ratio=0.1, batch_size=args.batch_size)
-
         '''
         dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
         dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
@@ -90,6 +93,15 @@ if __name__ == "__main__":
         dataset.num_features = dataset_train.num_features
         '''
         class_num = dataset.num_classes
+        num_features = dataset.num_features
+    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg"]:
+        dl = DatasetLoader()
+        dataset, y_p = dl.load_dataset_ptg(args.dataset)
+        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
+                                              mask_nodes_ratio=0.2, batch_size=args.batch_size)
+        class_num = len(np.unique(y_p))
+        num_features = len(dataset[0].x[0].cpu().detach().numpy())
+        print(class_num, num_features)
     else:
         dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
         dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset,
@@ -99,6 +111,7 @@ if __name__ == "__main__":
                                               mask_nodes_ratio=0.1, batch_size=args.batch_size)
 
         class_num = dataset.num_classes
+        num_features = dataset.num_features
 
     '''
     # prepare data
@@ -112,10 +125,9 @@ if __name__ == "__main__":
 
 
     # initialize model
-    gnn = GCN(dataset.num_features)
-    print(dataset.num_features)
+    gnn = GCN(num_features)
     model = network.Network(gnn, args.feature_dim, class_num)
-    model = model.to('cpu')
+    model = model.to('cuda')
     # optimizer / loss
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     if args.reload:
@@ -124,7 +136,7 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint['net'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         args.start_epoch = checkpoint['epoch'] + 1
-    loss_device = torch.device("cpu")
+    loss_device = torch.device("cuda")
     criterion_instance = contrastive_loss.InstanceLoss(args.batch_size, args.instance_temperature, loss_device).to(
         loss_device)
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)

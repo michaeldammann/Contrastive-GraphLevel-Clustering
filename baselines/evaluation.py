@@ -10,30 +10,75 @@ from ceilo_graph_generation.grakeltest import silhouette
 import os
 from pathlib import Path
 import json
+import random
+from modules.gcn import GCN
+from modules import network
+from torch_geometric.loader import DataLoader
+import torch
+from evaluation.evaluation import get_y_preds
+
+np.random.seed(42)
+random.seed(42)
 
 
 
-datasets = ['ogbg-molhiv', 'TWITTER-Real-Graph-Partial', 'MNISTSuperpixels', 'ConstructedGraphs'] #'MNISTSuperpixels500', 'ogbg-ppa', 'ogbg-ppa10000',
-classes = [2, 2, 10, 10, 37, 37, 2]
-baselines = ['G2VClust', 'NodeAvg']
+datasets = ['ogbg-molhiv', 'TWITTER-Real-Graph-Partial', 'MNISTSuperpixels', 'constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4'] #'MNISTSuperpixels500', 'ogbg-ppa', 'ogbg-ppa10000',
+classes = [2, 2, 10, 2, 2, 4]#, 37, 37, 2]
+
+models = ['G2VClust', 'NodeAvg', 'CC']
 dataset_idx = 6
 g2v_dim = 32
-ds_string = datasets[dataset_idx]
 dl = DatasetLoader()
+
+cc_basepath = '/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/'
+dataset_dicts_cc = [{}, {}, {}, {'num_features':6, 'start_epoch':250}]
+cc_dict = {'feature_dim':128}
+'''
+ds_string = datasets[dataset_idx]
+
 x, y = dl.load_dataset_nx(ds_string)
 x_p, _ = dl.load_dataset_ptg(ds_string)
 Path(datasets[dataset_idx]).mkdir(exist_ok=True)
 print('dataset loaded')
+'''
 
+def load_model(model_fp, model):
+    checkpoint = torch.load(model_fp)
+    model.load_state_dict(checkpoint['net'])
+    return model
 
-
-def get_embs_and_preds(baseline_idx):
-    if baseline_idx==0:
+def get_embs_and_preds(models_idx, x_p):
+    if models_idx==0:
         g2vc = G2VClust(g2v_dim)
-        all_embs, y_pred = g2vc.kmeans_clust(classes[dataset_idx], ds_string)
-    elif baseline_idx==1:
+        all_embs, y_pred = g2vc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
+    elif models_idx==1:
         na = NodeAvg()
-        all_embs, y_pred = na.kmeans_clust(2, ds_string)
+        all_embs, y_pred = na.kmeans_clust(2, datasets[dataset_idx])
+    elif model_idx==2:
+        gnn = GCN(dataset_dicts_cc[dataset_idx]['num_features'])
+        model = network.Network(gnn, cc_dict['feature_dim'], classes[dataset_idx])
+        model_fp = os.path.join(cc_basepath, datasets[dataset_idx],
+                                "checkpoint_{}.tar".format(dataset_dicts_cc[dataset_idx]['start_epoch']))
+        model = load_model(model_fp, model)
+        print('Model loaded')
+
+        data_loader = DataLoader(x_p, batch_size=16)
+        data_loader = iter(data_loader)
+        print('Dataloader initialized')
+
+        all_embs= []
+        y_pred = []
+
+
+        for step in range(len(data_loader)):
+            x_i = next(data_loader)
+            x_j = x_i
+            z_i, z_j, c_i, c_j = model(x_i, x_j)
+            z_i_np = z_i.cpu().detach().numpy()
+            c_i_np = c_i.cpu().detach().numpy()
+            all_embs.extend(z_i_np)
+            y_pred.extend(np.argmax(c_i_np, axis=1))
+
     return all_embs, y_pred
 
 def mean_std_per_group(ary, group_ary, n_classes):
@@ -53,19 +98,22 @@ def mean_std_per_group(ary, group_ary, n_classes):
     return mean_ary, std_ary
 
 
-def save_stats_dict(y, y_pred):
+def save_stats_dict(x_p, y, y_pred):
     n_nodes_ary = [g.number_of_nodes() for g in x]
     n_edges_ary = [g.number_of_edges() for g in x]
 
+    pred_adjusted = get_y_preds(y, y_pred, len(set(y)))
+
     stats_dict = {'nmi':nmi(y, y_pred), 'ari':ari(y, y_pred), 'ami':ami(y, y_pred), 'hmg':hmg(y, y_pred),
+                  'acc': acc(pred_adjusted, y), 'bacc':bacc(pred_adjusted, y),
                   'sil1':silhouette(x_p, y_pred, n_iter=1), 'sil2':silhouette(x_p, y_pred, n_iter=2),
                   'sil3':silhouette(x_p, y_pred, n_iter=3), 'sil5':silhouette(x_p, y_pred, n_iter=5),
                   'sil10':silhouette(x_p, y_pred, n_iter=10),
                   'mean_std_nodes':mean_std_per_group(n_nodes_ary, y_pred, classes[dataset_idx]),
                   'mean_std_edges':mean_std_per_group(n_edges_ary, y_pred, classes[dataset_idx])}
 
-    with open(os.path.join(datasets[dataset_idx],'stats_dict.json'), 'w') as fp:
-        json.dump(dict, fp)
+    with open(os.path.join('{}_{}'.format(datasets[dataset_idx],models[model_idx]),'stats_dict.json'), 'w') as fp:
+        json.dump(stats_dict, fp)
 
 
 def generate_umap_emb(all_embs):
@@ -86,13 +134,17 @@ def viz_classes(umap_embedding):
         for g in np.unique(y_bin):
             ix = np.where(y_bin == g)
             ax.scatter(umap_embedding[ix,0], umap_embedding[ix,1], c = cdict_bin[g], label = g, alpha = 0.2)
-        ax.set_title('{}, {}, Class {}'.format(datasets[dataset_idx], baselines[baseline_idx], str(class_i)))
-        plt.savefig(os.path.join(datasets[dataset_idx],str(class_i)+'.png'))
+        ax.set_title('{}, {}, Class {}'.format(datasets[dataset_idx], models[model_idx], str(class_i)))
+        plt.savefig(os.path.join('{}_{}'.format(datasets[dataset_idx],models[model_idx]),str(class_i)+'.png'))
 
-for baseline_idx in range(len(baselines)):
-    for dataset_idx in range(len(datasets)):
+for model_idx in [2]:#range(len(models)):
+    print('Model:', models[model_idx])
+    for dataset_idx in range(3,4):#range(len(datasets)):
+        Path('{}_{}'.format(datasets[dataset_idx],models[model_idx])).mkdir(exist_ok=True)
+        print('Dataset:', datasets[dataset_idx])
         x, y = dl.load_dataset_nx(datasets[dataset_idx])
-        all_embs, y_pred = get_embs_and_preds(baseline_idx)
-        stats_dict = save_stats_dict(y, y_pred)
+        x_p, y_p = dl.load_dataset_ptg(datasets[dataset_idx])
+        all_embs, y_pred = get_embs_and_preds(model_idx, x_p)
+        stats_dict = save_stats_dict(x_p, y, y_pred)
         umap_emb = generate_umap_emb(all_embs)
         viz_classes(umap_emb)

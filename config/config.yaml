@@ -6,14 +6,14 @@ dataset_dir: "./datasets"
 # train options
 batch_size: 512
 image_size: 224
-start_epoch: 0
-epochs: 500
-dataset: "CeiloGraphs" #ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
+start_epoch: 0 #´´
+epochs: 250
+dataset: "constructedgraphs_2" #ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
 
 # model options
 resnet: "ResNet34" # ResNet18 / ResNet34 / ResNet50
 feature_dim: 128
-model_path: "save/CeiloGraphs_test"
+model_path: "save/constructedgraphs_2"
 reload: False
 
 # loss options

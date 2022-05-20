@@ -27,12 +27,12 @@ class DatasetLoader:
             for k, v in graphdict.items():
                 all_graphs_t.extend(v)
 
-        elif dataset == 'ConstructedGraphs':
-            with open('/home/rigel/MDammann/PycharmProjects/CC4Graphs/baselines/constructedgraphs.pkl', 'rb') as handle:
+        elif dataset in ['constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4']:
+            with open('/home/rigel/MDammann/PycharmProjects/CC4Graphs/baselines/{}.pkl'.format(dataset), 'rb') as handle:
                 constructedgraphs = pickle.load(handle)
 
             for graph in constructedgraphs:
-                data_g = torch_geometric.data.Data(x=torch.tensor(graph[0]), edge_index=torch.tensor(graph[1]))
+                data_g = torch_geometric.data.Data(x=torch.tensor(graph[0]), edge_index=torch.tensor(graph[1]), y=torch.tensor(graph[2]))
                 all_graphs_t.append(data_g)
                 all_y.append(graph[2])
 
@@ -42,7 +42,7 @@ class DatasetLoader:
 
             it = iter(loader)
             for data_b in it:
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
 
@@ -52,7 +52,7 @@ class DatasetLoader:
 
             it = iter(loader)
             for data_b in it:
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
 
@@ -64,7 +64,7 @@ class DatasetLoader:
             for data_b in it:
                 if len(all_graphs_t)>10000:
                     break
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 print(data_g)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
@@ -76,7 +76,7 @@ class DatasetLoader:
 
             it = iter(loader)
             for data_b in it:
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0])
 
@@ -89,13 +89,13 @@ class DatasetLoader:
 
             it = iter(loader_train)
             for data_b in it:
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0])
 
             it = iter(loader_test)
             for data_b in it:
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0])
 
@@ -107,7 +107,7 @@ class DatasetLoader:
             for data_b in it:
                 if len(all_graphs_t)>=500:
                     break
-                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr)
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0])
 
