@@ -2,8 +2,13 @@ import matplotlib.pyplot as plt
 
 from NodeAvg import NodeAvg
 from G2VClust import G2VClust
+from FGSDClust import FGSDClust
+from SFClust import SFClust
+from GeoScatteringClust import GeoScatteringClust
 from graph_helper.DatasetLoader import DatasetLoader
-from sklearn.metrics import normalized_mutual_info_score as nmi, accuracy_score as acc, balanced_accuracy_score as bacc, adjusted_rand_score as ari, adjusted_mutual_info_score as ami, homogeneity_score as hmg
+from sklearn.metrics import normalized_mutual_info_score as nmi, accuracy_score as acc, \
+    balanced_accuracy_score as bacc, adjusted_rand_score as ari, adjusted_mutual_info_score as ami, \
+    homogeneity_score as hmg, fowlkes_mallows_score as fm
 import numpy as np
 import umap
 from ceilo_graph_generation.grakeltest import silhouette
@@ -15,24 +20,31 @@ from modules.gcn import GCN
 from modules import network
 from torch_geometric.loader import DataLoader
 import torch
-from evaluation.evaluation import get_y_preds
+from adjust_labels import get_y_preds
 
 np.random.seed(42)
 random.seed(42)
 
 
 
-datasets = ['ogbg-molhiv', 'TWITTER-Real-Graph-Partial', 'MNISTSuperpixels', 'constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4'] #'MNISTSuperpixels500', 'ogbg-ppa', 'ogbg-ppa10000',
-classes = [2, 2, 10, 2, 2, 4]#, 37, 37, 2]
+datasets = ['ogbg-molhiv', 'TWITTER-Real-Graph-Partial', 'MNISTSuperpixels', 'constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4', 'reddit_threads', 'twitch_egos'] #'MNISTSuperpixels500', 'ogbg-ppa', 'ogbg-ppa10000',
+classes = [2, 2, 10, 2, 2, 4, 2, 2]#, 37, 37, 2]
 
-models = ['G2VClust', 'NodeAvg', 'CC']
-dataset_idx = 6
+models = ['G2VClust', 'NodeAvg', 'CC', 'FGSDClust', 'SFClust', 'GeoScatteringClust']
+#dataset_idx = 6
 g2v_dim = 32
 dl = DatasetLoader()
 
 cc_basepath = '/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/'
-dataset_dicts_cc = [{}, {}, {}, {'num_features':6, 'start_epoch':250}]
-cc_dict = {'feature_dim':128}
+dataset_dicts_cc = [{'num_features':9, 'start_epoch': 60, 'avg_num_nodes':25},
+                    {'num_features':1323, 'start_epoch': 50, 'avg_num_nodes':4},
+                    {'num_features':1, 'start_epoch':500, 'avg_num_nodes':75},
+                    {'num_features':6, 'start_epoch':290, 'avg_num_nodes':13},
+                    {},
+                    {'num_features':6, 'start_epoch':70},
+                    {'num_features':94, 'start_epoch':280, 'avg_num_nodes':23},
+                    {'num_features':52, 'start_epoch':280, 'avg_num_nodes':29}]
+cc_dict = {'feature_dim':64}
 '''
 ds_string = datasets[dataset_idx]
 
@@ -47,6 +59,7 @@ def load_model(model_fp, model):
     model.load_state_dict(checkpoint['net'])
     return model
 
+
 def get_embs_and_preds(models_idx, x_p):
     if models_idx==0:
         g2vc = G2VClust(g2v_dim)
@@ -55,7 +68,7 @@ def get_embs_and_preds(models_idx, x_p):
         na = NodeAvg()
         all_embs, y_pred = na.kmeans_clust(2, datasets[dataset_idx])
     elif model_idx==2:
-        gnn = GCN(dataset_dicts_cc[dataset_idx]['num_features'])
+        gnn = GCN(dataset_dicts_cc[dataset_idx]['num_features'], dataset_dicts_cc[dataset_idx]['avg_num_nodes'])
         model = network.Network(gnn, cc_dict['feature_dim'], classes[dataset_idx])
         model_fp = os.path.join(cc_basepath, datasets[dataset_idx],
                                 "checkpoint_{}.tar".format(dataset_dicts_cc[dataset_idx]['start_epoch']))
@@ -78,6 +91,15 @@ def get_embs_and_preds(models_idx, x_p):
             c_i_np = c_i.cpu().detach().numpy()
             all_embs.extend(z_i_np)
             y_pred.extend(np.argmax(c_i_np, axis=1))
+    elif models_idx==3:
+        fgsdc = FGSDClust(g2v_dim)
+        all_embs, y_pred = fgsdc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
+    elif models_idx==4:
+        sfc = SFClust(g2v_dim)
+        all_embs, y_pred = sfc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
+    elif models_idx==5:
+        gsc = GeoScatteringClust(g2v_dim)
+        all_embs, y_pred = gsc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
 
     return all_embs, y_pred
 
@@ -105,7 +127,7 @@ def save_stats_dict(x_p, y, y_pred):
     pred_adjusted = get_y_preds(y, y_pred, len(set(y)))
 
     stats_dict = {'nmi':nmi(y, y_pred), 'ari':ari(y, y_pred), 'ami':ami(y, y_pred), 'hmg':hmg(y, y_pred),
-                  'acc': acc(pred_adjusted, y), 'bacc':bacc(pred_adjusted, y),
+                  'acc': acc(y, pred_adjusted), 'bacc':bacc(y, pred_adjusted), 'fm': fm(y, pred_adjusted),
                   'sil1':silhouette(x_p, y_pred, n_iter=1), 'sil2':silhouette(x_p, y_pred, n_iter=2),
                   'sil3':silhouette(x_p, y_pred, n_iter=3), 'sil5':silhouette(x_p, y_pred, n_iter=5),
                   'sil10':silhouette(x_p, y_pred, n_iter=10),
@@ -139,7 +161,7 @@ def viz_classes(umap_embedding):
 
 for model_idx in [2]:#range(len(models)):
     print('Model:', models[model_idx])
-    for dataset_idx in range(3,4):#range(len(datasets)):
+    for dataset_idx in range(6,7):#range(len(datasets)):
         Path('{}_{}'.format(datasets[dataset_idx],models[model_idx])).mkdir(exist_ok=True)
         print('Dataset:', datasets[dataset_idx])
         x, y = dl.load_dataset_nx(datasets[dataset_idx])

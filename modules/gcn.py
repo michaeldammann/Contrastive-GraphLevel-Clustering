@@ -1,13 +1,13 @@
 import torch
 import torch.nn.functional as F
 
-from torch_geometric.nn import GCNConv, global_mean_pool as gap, global_max_pool as gmp
+from torch_geometric.nn import GCNConv, global_mean_pool as gap, global_max_pool as gmp, GraphMultisetTransformer as gmt
 from torch.nn import Linear
 
 class GCN(torch.nn.Module):
-    def __init__(self, num_features):
+    def __init__(self, num_features, avg_num_nodes):
         super(GCN, self).__init__()
-        self.rep_dim = 128
+        self.rep_dim = 64
         # GCN layers
         self.conv1 = GCNConv(num_features, 16)
         self.conv2 = GCNConv(16, 32)
@@ -16,8 +16,9 @@ class GCN(torch.nn.Module):
         self.conv5 = GCNConv(64, 128)
         # Output
         self.lin_before_pool = Linear(128, 128)
-        self.lin_after_pool = Linear(128 * 2, 128 * 2)
-        self.out = Linear(128*2, self.rep_dim)
+        self.lin_after_pool = Linear(128, 128)
+        self.gmt = gmt(128, 16, 128, num_nodes=avg_num_nodes)
+        self.out = Linear(128, self.rep_dim)
 
     def forward(self, x, edge_index, batch_index):
         # Conv Layers
@@ -32,9 +33,17 @@ class GCN(torch.nn.Module):
         hidden = self.conv5(hidden, edge_index)
         hidden = F.relu(hidden)
         hidden = self.lin_before_pool(hidden)
+        hidden = F.relu(hidden)
         # Global Pooling
+        hidden = self.gmt(x=hidden, edge_index=edge_index, batch=batch_index)
+        hidden = F.relu(hidden)
+        '''
         hidden = torch.cat([gmp(hidden, batch_index),
                             gap(hidden, batch_index)], dim=1)
+        hidden = F.relu(hidden)
+        '''
         hidden = self.lin_after_pool(hidden)
+        hidden = F.relu(hidden)
+
         out = self.out(hidden)
         return out

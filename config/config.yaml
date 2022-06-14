@@ -6,18 +6,19 @@ dataset_dir: "./datasets"
 # train options
 batch_size: 512
 image_size: 224
-start_epoch: 0 #´´
-epochs: 250
-dataset: "constructedgraphs_2" #ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
+start_epoch: 0
+epochs: 1000
+dataset:  "twitch_egos" #/ constructedgraphs_2nodedeg / constructedgraphs_2 / ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
+device: "cuda" #"cpu" / "cuda"
 
 # model options
 resnet: "ResNet34" # ResNet18 / ResNet34 / ResNet50
-feature_dim: 128
-model_path: "save/constructedgraphs_2"
+feature_dim: 64
+model_path: "save/twitch_egos"
 reload: False
 
 # loss options
-learning_rate: 0.001 #0.0003
+learning_rate: 0.001 # ->0.001<- #0.0003 LR WIEDER ÄNDERN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 weight_decay: 0.
 instance_temperature: 0.5 #0.5
 cluster_temperature: 1.0 #1.0

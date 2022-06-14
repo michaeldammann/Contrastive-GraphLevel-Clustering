@@ -23,6 +23,7 @@ import time
 from datasets.CeiloGraphs import CeiloGraphs
 from ogb.graphproppred import PygGraphPropPredDataset
 from graph_helper.DatasetLoader import DatasetLoader
+from pathlib import Path
 
 def train():
     loss_epoch = 0
@@ -32,8 +33,8 @@ def train():
 
         #print(x_i.x.float(), x_i.edge_index, x_i.batch)
         optimizer.zero_grad()
-        x_i = x_i.to('cuda')
-        x_j = x_j.to('cuda')
+        x_i = x_i.to(args.device)
+        x_j = x_j.to(args.device)
         z_i, z_j, c_i, c_j = model(x_i, x_j)
         loss_instance = criterion_instance(z_i, z_j)
         loss_cluster = criterion_cluster(c_i, c_j)
@@ -48,8 +49,6 @@ def train():
 
 
 if __name__ == "__main__":
-    print('Cuda:')
-    print(torch.cuda.is_available())
     parser = argparse.ArgumentParser()
     config = yaml_config_hook("config/config.yaml")
     for k, v in config.items():
@@ -69,32 +68,9 @@ if __name__ == "__main__":
                                               mask_nodes_ratio=0.1, batch_size=args.batch_size)
         class_num = args.ceilo_n_clusters
         num_features = dataset.num_features
-    elif args.dataset == 'ogbg-molhiv':
-        dataset = PygGraphPropPredDataset(name='ogbg-molhiv')
-        GraphTransformer = GraphTransform_All_molhiv(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
-                                              mask_nodes_ratio=0.1, batch_size=args.batch_size)
-        class_num = 2
-        num_features = dataset.num_features
-    elif args.dataset == 'TWITTER-Real-Graph-Partial':
-        dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
-                                                  mask_nodes_ratio=0.1, batch_size=args.batch_size)
-        class_num = dataset.num_classes
-        num_features = dataset.num_features
-    elif args.dataset == "MNISTSuperpixels":
-        dataset = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/MNISTSuperpixels', train=True)
-        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
-                                              mask_nodes_ratio=0.1, batch_size=args.batch_size)
-        '''
-        dataset_train = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=True)
-        dataset_test = MNISTSuperpixels(root='/home/md/PycharmProjects/CC4Graphs/datasets/', train=False)
-        dataset = ConcatDataset([dataset_train, dataset_test])
-        dataset.num_classes = dataset_train.num_classes
-        dataset.num_features = dataset_train.num_features
-        '''
-        class_num = dataset.num_classes
-        num_features = dataset.num_features
-    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg"]:
+    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg",
+                          "MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
+                          "twitch_egos"]:
         dl = DatasetLoader()
         dataset, y_p = dl.load_dataset_ptg(args.dataset)
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
@@ -102,7 +78,9 @@ if __name__ == "__main__":
         class_num = len(np.unique(y_p))
         num_features = len(dataset[0].x[0].cpu().detach().numpy())
         print(class_num, num_features)
+        print(len(dataset))
     else:
+        print("!!!!!!!!!Using generic TUDataset loader!!!!!!!!!")
         dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
         dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset,
                             transform=torch_geometric.transforms.OneHotDegree(
@@ -123,11 +101,14 @@ if __name__ == "__main__":
         raise NotImplementedError
     '''
 
-
+    epoch_stats = Path(args.model_path, 'epoch_stats.txt')
+    epoch_stats.touch(exist_ok=True)
+    avg_num_nodes = int(np.sum([len(g.x) for g in dataset])/len(dataset))
+    print('ann', avg_num_nodes)
     # initialize model
-    gnn = GCN(num_features)
+    gnn = GCN(num_features, avg_num_nodes=avg_num_nodes)
     model = network.Network(gnn, args.feature_dim, class_num)
-    model = model.to('cuda')
+    model = model.to(args.device)
     # optimizer / loss
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     if args.reload:
@@ -136,7 +117,12 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint['net'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         args.start_epoch = checkpoint['epoch'] + 1
-    loss_device = torch.device("cuda")
+        '''
+        model_fp = os.path.join(args.model_path, "checkpoint_{}.tar".format(args.start_epoch))
+        model = torch.load(model_fp)
+        args.start_epoch += 1
+        '''
+    loss_device = torch.device(args.device)
     criterion_instance = contrastive_loss.InstanceLoss(args.batch_size, args.instance_temperature, loss_device).to(
         loss_device)
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)
@@ -155,6 +141,8 @@ if __name__ == "__main__":
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)
         lr = optimizer.param_groups[0]["lr"]
         loss_epoch = train()
+        with open(Path(args.model_path, 'epoch_stats.txt'), "a+") as f:
+            f.write(f"Epoch [{epoch}/{args.epochs}]\t Loss: {loss_epoch / len(data_loader_i)}\n")
         if epoch % 10 == 0:
             print('Saving')
             save_model(args, model, optimizer, epoch)

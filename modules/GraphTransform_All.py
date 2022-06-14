@@ -23,10 +23,10 @@ class GraphTransform_All:
 
       idx_perm = np.random.permutation(node_num)
 
-      idx_drop = idx_perm[:drop_num]
+      #idx_drop = idx_perm[:drop_num]
       idx_nondrop = idx_perm[drop_num:]
       idx_nondrop.sort()
-      idx_dict = {idx_nondrop[n]: n for n in list(range(idx_nondrop.shape[0]))}
+      #idx_dict = {idx_nondrop[n]: n for n in list(range(idx_nondrop.shape[0]))}
 
       edge_index = data.edge_index.numpy()
       adj = torch.zeros((node_num, node_num))
@@ -96,10 +96,10 @@ class GraphTransform_All:
           idx_sub.append(sample_node)
           idx_neigh = idx_neigh.union(set([n for n in edge_index[1][edge_index[0] == idx_sub[-1]]]))
 
-      idx_drop = [n for n in range(node_num) if not n in idx_sub]
+      #idx_drop = [n for n in range(node_num) if not n in idx_sub]
       idx_nondrop = idx_sub
       data.x = data.x[idx_nondrop]
-      idx_dict = {idx_nondrop[n]: n for n in list(range(len(idx_nondrop)))}
+      #idx_dict = {idx_nondrop[n]: n for n in list(range(len(idx_nondrop)))}
 
       edge_index = data.edge_index.numpy()
       adj = torch.zeros((node_num, node_num))

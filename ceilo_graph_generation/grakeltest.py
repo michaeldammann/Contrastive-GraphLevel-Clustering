@@ -6,8 +6,7 @@ from sklearn.metrics import silhouette_score
 import numpy as np
 import random
 
-dl = DatasetLoader()
-x, y = dl.load_dataset_ptg('ogbg-molhiv')
+
 
 def ptg_to_grakel(ptg_graph):
     adj_matrix = to_dense_adj(ptg_graph.edge_index).cpu().detach().numpy()[0].tolist()
@@ -25,14 +24,16 @@ def silhouette(dataset_x, labels, n_iter=5, samples=2500):
     distance = (1.-np.array(wlmatrix)).tolist()
     return silhouette_score(X=distance, labels=labels_s, metric='precomputed')
 
-
+'''
+dl = DatasetLoader()
+x, y = dl.load_dataset_ptg('ogbg-molhiv')
 ptg_to_grakel(x[0])
 
-'''
+
 adj = [[0, 1, 1], [1, 0, 0], [1, 0, 0]]
 node_attributes = {0: [1.2, 0.5], 1: [2.8, -0.6], 2: [0.7, 1.1]}
 G = Graph(adj, node_labels=node_attributes)
-'''
+
 
 from grakel import Graph
 
@@ -57,3 +58,4 @@ wl_kernel = WeisfeilerLehman(n_iter=1, base_graph_kernel=VertexHistogram, normal
 print(wl_kernel.fit_transform([ptg_to_grakel(x[0]), ptg_to_grakel(x[1])]))
 #print(wl_kernel.transform([H3O]))
 #print(wl_kernel.transform([H2O]))
+'''

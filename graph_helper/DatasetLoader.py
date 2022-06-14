@@ -6,10 +6,12 @@ from torch_geometric.utils.convert import to_networkx
 from ogb.graphproppred import PygGraphPropPredDataset
 from torch_geometric.loader import DataLoader
 import torch_geometric
-from torch_geometric.datasets import TUDataset, MNISTSuperpixels
+from torch_geometric.datasets import TUDataset, MNISTSuperpixels, ShapeNet, ModelNet, CoMA, GeometricShapes
 import numpy as np
 from sklearn.cluster import KMeans
 from torch.utils.data import ConcatDataset
+import torch_geometric.transforms as T
+from modules.graph_utils import max_degree_undirected
 
 class DatasetLoader:
 
@@ -49,11 +51,12 @@ class DatasetLoader:
         elif dataset == 'ogbg-ppa':
             dataset = PygGraphPropPredDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='ogbg-ppa')
             loader = DataLoader(dataset, batch_size=1, shuffle=False)
-
+            max_deg = max_degree_undirected(dataset)
+            transform = torch_geometric.transforms.OneHotDegree(max_degree=max_deg)
             it = iter(loader)
             for data_b in it:
                 data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
-                all_graphs_t.append(data_g)
+                all_graphs_t.append(transform(data_g))
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
 
         elif dataset == 'ogbg-ppa10000':
@@ -69,7 +72,7 @@ class DatasetLoader:
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
 
-        elif dataset == 'TWITTER-Real-Graph-Partial':
+        elif dataset in ['TWITTER-Real-Graph-Partial', 'Yeast']:
             dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
                                 name='TWITTER-Real-Graph-Partial')
             loader = DataLoader(dataset, batch_size=1, shuffle=False)
@@ -79,7 +82,43 @@ class DatasetLoader:
                 data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0])
+        elif dataset in ['reddit_threads', 'twitch_egos', 'REDDIT-BINARY', 'TRIANGLES']:
+            dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                                             name=dataset)
+            dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=dataset,
+                                transform=torch_geometric.transforms.OneHotDegree(
+                                    max_degree=max_degree_undirected(dataset_pretransform)))
+            loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
+            it = iter(loader)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(data_b.y.cpu().detach().numpy()[0])
+        elif dataset == 'ShapeNet':
+            dataset = ShapeNet(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/ShapeNet')
+            loader = DataLoader(dataset, batch_size=1, shuffle=False)
+            it = iter(loader)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(data_b.y.cpu().detach().numpy()[0])
+        elif dataset in ['ModelNet10', 'ModelNet40']:
+            dataset = ModelNet(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/'+dataset, name=dataset[-2:], pre_transform=T.FaceToEdge)
+            loader = DataLoader(dataset, batch_size=1, shuffle=False)
+            it = iter(loader)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(data_b.y.cpu().detach().numpy()[0])
+        elif dataset == 'CoMA':
+            dataset = CoMA(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/'+dataset, pre_transform=T.FaceToEdge)
+            loader = DataLoader(dataset, batch_size=1, shuffle=False)
+            it = iter(loader)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(data_b.y.cpu().detach().numpy()[0])
         elif dataset == 'MNISTSuperpixels':
             dataset_train = MNISTSuperpixels(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', train=True)
             loader_train = DataLoader(dataset_train, batch_size=1, shuffle=False)
