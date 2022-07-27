@@ -6,6 +6,7 @@ import random
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
 import inspect
+import multiprocessing as mp
 
 class GraphTransform_All:
   def __init__(self, drop_nodes_ratio, subgraph_ratio, permute_edges_ratio, mask_nodes_ratio, batch_size):
@@ -52,6 +53,26 @@ class GraphTransform_All:
       return data
 
   def permute_edges(self, data, aug_ratio):
+
+      node_num, _ = data.x.size()
+      _, edge_num = data.edge_index.size()
+      permute_num = int(edge_num * aug_ratio)
+
+      edge_index = data.edge_index.numpy()
+
+      idx_add = np.random.choice(node_num, (2, permute_num))
+
+      # idx_add = [[idx_add[0, n], idx_add[1, n]] for n in range(permute_num) if not (idx_add[0, n], idx_add[1, n]) in edge_index]
+      # edge_index = [edge_index[n] for n in range(edge_num) if not n in np.random.choice(edge_num, permute_num, replace=False)] + idx_add
+
+      edge_index = np.concatenate(
+          (edge_index[:, np.random.choice(edge_num, (edge_num - permute_num), replace=False)], idx_add), axis=1)
+      data.edge_index = torch.tensor(edge_index)
+      #new_data = Data(x=data.x, edge_index=data.edge_index, y=data.y, num_nodes=data.x.size()[0])
+      #data.num_nodes = data.x.size()
+      return data
+
+  def permute_edges_fixed(self, data, aug_ratio):
 
       node_num, _ = data.x.size()
       _, edge_num = data.edge_index.size()
@@ -130,6 +151,135 @@ class GraphTransform_All:
       #data.num_nodes = data.x.size()
       return data
 
+  def generate_augmentations_i_j_dropnodesonly(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      for idx, elem in enumerate(all_data):
+          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
+          if ri == 0:
+              all_data_i[idx]=self.drop_nodes(all_data_i[idx], self.drop_nodes_ratio)
+          # elif ri == 1: identity
+
+          if rj == 0:
+              all_data_j[idx]=self.drop_nodes(all_data_j[idx], self.drop_nodes_ratio)
+          # elif rj == 1: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def generate_augmentations_i_j_permuteedgesonly(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      for idx, elem in enumerate(all_data):
+          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
+          if ri == 0:
+              all_data_i[idx]=self.permute_edges(all_data_i[idx], self.permute_edges_ratio)
+          # elif ri == 1: identity
+
+          if rj == 0:
+              all_data_j[idx]=self.permute_edges(all_data_j[idx], self.permute_edges_ratio)
+          # elif rj == 1: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def generate_augmentations_i_j_noaug(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def generate_augmentations_i_j_masknodesonly(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      for idx, elem in enumerate(all_data):
+          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
+          if ri == 0:
+              all_data_i[idx]=self.mask_nodes(all_data_i[idx], self.mask_nodes_ratio)
+          # elif ri == 1: identity
+
+          if rj == 0:
+              all_data_j[idx]=self.mask_nodes(all_data_j[idx], self.mask_nodes_ratio)
+          # elif rj == 1: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def generate_augmentations_i_j_subgraphonly(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      for idx, elem in enumerate(all_data):
+          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
+          if ri == 0:
+              all_data_i[idx]=self.subgraph(all_data_i[idx], self.subgraph_ratio)
+          # elif ri == 1: identity
+
+          if rj == 0:
+              all_data_j[idx]=self.subgraph(all_data_j[idx], self.subgraph_ratio)
+          # elif rj == 1: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
+  def generate_augmentations_i_j_subgraphanddropnodesonly(self, dataset):
+      all_data = [elem for elem in dataset]
+      random.shuffle(all_data)
+
+      #Determine cutoff index to avoid incomplete batches
+      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
+      all_data = all_data[:cutoff_at]
+
+      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
+
+      for idx, elem in enumerate(all_data):
+          is_subgraph = random.choice([False,True])
+          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
+          if ri == 0:
+              if is_subgraph:
+                all_data_i[idx]=self.subgraph(all_data_i[idx], self.subgraph_ratio)
+              else:
+                all_data_i[idx] = self.drop_nodes(all_data_i[idx], self.drop_nodes_ratio)
+          # elif ri == 1: identity
+
+          if rj == 0:
+              if is_subgraph:
+                all_data_j[idx]=self.subgraph(all_data_j[idx], self.subgraph_ratio)
+              else:
+                all_data_j[idx] = self.drop_nodes(all_data_j[idx], self.drop_nodes_ratio)
+          # elif rj == 1: identity
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
+
   def generate_augmentations_i_j(self, dataset):
       all_data = [elem for elem in dataset]
       random.shuffle(all_data)
@@ -175,6 +325,29 @@ class GraphTransform_All:
           return self.mask_nodes(data, self.mask_nodes_ratio)
       elif randint == 4:
           return data
+
+  def split(self, a, n):
+      k, m = divmod(len(a), n)
+      return list((a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n)))
+
+  def generate_augmentations_i_j_multiproc(self, dataset, workers=mp.cpu_count()):
+      pool = mp.Pool(workers, maxtasksperchild=1000)
+      dataset_chunks = self.split(dataset, workers)
+      aug_datasets_all = [pool.apply_async(self.generate_augmentations_i_j, args=(dataset_chunk,))
+                      for dataset_chunk in dataset_chunks]
+      pool.close()
+      pool.join()
+      aug_datasets_all = [res.get() for res in aug_datasets_all]
+      all_data_i_chunks = [result for result in aug_datasets_all[:,3]]
+      all_data_j_chunks = [result for result in aug_datasets_all[:,3]]
+      all_data_i = []
+      [all_data_i.extend(el) for el in all_data_i_chunks]
+      all_data_j = []
+      [all_data_j.extend(el) for el in all_data_j_chunks]
+
+      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size),
+              all_data_i, all_data_j)
+
 
   def generate_augmentations_i_j_fast(self, dataset):
 

@@ -8,15 +8,15 @@ import pickle
 random.seed(42)
 
 graph1_min_max_nodes = (5,15)
-graph1_min_max_nodedeg = (1,4)
+graph1_min_max_nodedeg = (4,7)
 graph2_min_max_nodes = (5,15)
-graph2_min_max_nodedeg = (7,10)
+graph2_min_max_nodedeg = (4,7)
 
 def node_feat_choice(pref):
     if pref:
-        return random.choices([0,1], [0.5, 0.5])[0]
+        return random.choices([0,1], [0.1, 0.9])[0]
     else:
-        return random.choices([0, 1], [0.5, 0.5])[0]
+        return random.choices([0, 1], [0.9, 0.1])[0]
 
 def node_feats(graph_class):
     if graph_class == 0:
@@ -75,7 +75,7 @@ for i in range(30000):
 for i in range(30000):
     all_graphs.append(generate_graph(1))
 
-with open('constructedgraphs_2nodedeg.pkl', 'wb') as handle:
+with open('constructedgraphs_2features.pkl', 'wb') as handle:
     pickle.dump(all_graphs, handle)
 
 

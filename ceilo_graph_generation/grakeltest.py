@@ -1,5 +1,6 @@
 from grakel import Graph
 from grakel.kernels import MultiscaleLaplacian, ShortestPath, WeisfeilerLehman, VertexHistogram
+from grakel import GraphKernel
 from graph_helper.DatasetLoader import DatasetLoader
 from torch_geometric.utils import to_dense_adj
 from sklearn.metrics import silhouette_score
@@ -58,4 +59,30 @@ wl_kernel = WeisfeilerLehman(n_iter=1, base_graph_kernel=VertexHistogram, normal
 print(wl_kernel.fit_transform([ptg_to_grakel(x[0]), ptg_to_grakel(x[1])]))
 #print(wl_kernel.transform([H3O]))
 #print(wl_kernel.transform([H2O]))
+
+
+###########simple test##################
+
+from grakel import Graph
+g1_adjacency = [[0, 1, 1], [1, 0, 0], [1, 0, 0]]
+
+g1_node_labels = {0: tuple([0,1]), 1: tuple([1,0]), 2: tuple([1,0])}
+#H2O_node_labels = {0: 0, 1: 1, 2: 2}
+
+g1 = Graph(initialization_object=g1_adjacency, node_labels=g1_node_labels)
+
+g2_adjacency = [[0, 1, 1], [1, 0, 0], [1, 0, 0]]
+
+g2_node_labels = {0: tuple([1,0]), 1: tuple([1,0]), 2: tuple([1,0])}
+#H2O_node_labels = {0: 0, 1: 1, 2: 2}
+
+g2 = Graph(initialization_object=g2_adjacency, node_labels=g2_node_labels)
+
+wlg = GraphKernel(kernel="weisfeiler_lehman")
+
+wl_kernel = WeisfeilerLehman(n_iter=1, base_graph_kernel=VertexHistogram, normalize=True)
+print(wlg.fit_transform([g1, g2]))
+print(wlg.fit_transform([g1, g2])
+'''
+'''
 '''

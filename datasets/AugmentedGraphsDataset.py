@@ -15,11 +15,12 @@ random.shuffle(all_data)
 
 all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
 
+'''
 print(all_data_i[0])
 print(all_data_j[0])
 print(all_data_i[1])
 print(all_data_j[1])
-
+'''
 for idx, elem in enumerate(all_data):
     ri, rj = np.random.randint(5), np.random.randint(5)
     if ri == 0:
@@ -42,7 +43,9 @@ for idx, elem in enumerate(all_data):
         mask_nodes(all_data_j[idx], mask_nodes_ratio)
     #elif rj == 4: identity
 
+'''
 print(all_data_i[0])
 print(all_data_j[0])
 print(all_data_i[1])
 print(all_data_j[1])
+'''

@@ -7,12 +7,13 @@ import pickle
 
 random.seed(42)
 
-graph1_min_max_nodes = (5,15)
-graph1_min_max_nodedeg = (1,4)
-graph2_min_max_nodes = (5,15)
-graph2_min_max_nodedeg = (7,10)
+graph1_min_max_nodes = (5,11)
+graph1_min_max_nodedeg = (4,6)
+graph2_min_max_nodes = (15,26)
+graph2_min_max_nodedeg = (4,6)
 
 def node_feat_choice(pref):
+######### hier: komplett zufaellig! ############
     if pref:
         return random.choices([0,1], [0.5, 0.5])[0]
     else:
@@ -75,7 +76,7 @@ for i in range(30000):
 for i in range(30000):
     all_graphs.append(generate_graph(1))
 
-with open('constructedgraphs_2nodedeg.pkl', 'wb') as handle:
+with open('constructedgraphs_2size.pkl', 'wb') as handle:
     pickle.dump(all_graphs, handle)
 
 

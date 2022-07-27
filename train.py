@@ -24,6 +24,7 @@ from datasets.CeiloGraphs import CeiloGraphs
 from ogb.graphproppred import PygGraphPropPredDataset
 from graph_helper.DatasetLoader import DatasetLoader
 from pathlib import Path
+import multiprocessing as mp
 
 def train():
     loss_epoch = 0
@@ -38,7 +39,13 @@ def train():
         z_i, z_j, c_i, c_j = model(x_i, x_j)
         loss_instance = criterion_instance(z_i, z_j)
         loss_cluster = criterion_cluster(c_i, c_j)
-        loss = loss_instance + loss_cluster
+        if args.used_loss == "instanceonly":
+            loss = loss_instance
+        elif args.used_loss == "clusteronly":
+            loss = loss_cluster
+        else:
+            print("loss: default")
+            loss = loss_instance + loss_cluster
         loss.backward()
         optimizer.step()
         if step % 50 == 0:
@@ -64,13 +71,14 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
     if args.dataset == "CeiloGraphs":
         dataset = CeiloGraphs(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', graphpicklepath=args.graphpicklepath)
-        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
-                                              mask_nodes_ratio=0.1, batch_size=args.batch_size)
+        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
+                                              mask_nodes_ratio=0.2, batch_size=args.batch_size)
         class_num = args.ceilo_n_clusters
         num_features = dataset.num_features
-    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg",
+    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg", "constructedgraphs_2size",
+                          "constructedgraphs_2features",
                           "MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
-                          "twitch_egos"]:
+                          "twitch_egos", "Yeast", "TwitchVsDeezerEgos_balanced", "TwitchVsGithub_balanced"]:
         dl = DatasetLoader()
         dataset, y_p = dl.load_dataset_ptg(args.dataset)
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
@@ -79,6 +87,9 @@ if __name__ == "__main__":
         num_features = len(dataset[0].x[0].cpu().detach().numpy())
         print(class_num, num_features)
         print(len(dataset))
+    else:
+        raise NotImplementedError
+    '''
     else:
         print("!!!!!!!!!Using generic TUDataset loader!!!!!!!!!")
         dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
@@ -90,15 +101,14 @@ if __name__ == "__main__":
 
         class_num = dataset.num_classes
         num_features = dataset.num_features
-
+    '''
     '''
     # prepare data
     if args.dataset == "NCI1":
         dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
         class_num = dataset.num_classes
         print(class_num)
-    else:
-        raise NotImplementedError
+
     '''
 
     epoch_stats = Path(args.model_path, 'epoch_stats.txt')
@@ -135,7 +145,28 @@ if __name__ == "__main__":
         data_i, data_j = zip(*c)
         '''
         start_time = time.time()
-        data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
+
+        if args.augmode == "subgraphonly":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_subgraphonly(dataset)
+        elif args.augmode == "masknodesonly":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_masknodesonly(dataset)
+        elif args.augmode == "dropnodesonly":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_dropnodesonly(dataset)
+        elif args.augmode == "permuteedgesonly":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_permuteedgesonly(dataset)
+        elif args.augmode == "noaug":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_noaug(dataset)
+        elif args.augmode == "subgraphanddropnodesonly":
+            print("AUGMODE", args.augmode)
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_subgraphanddropnodesonly(dataset)
+        else:
+            print("AUGMODE all")
+            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
         print("--- %s seconds ---" % (time.time() - start_time))
         #data_loader_i, data_loader_j = DataLoader(data_i, batch_size=args.batch_size), DataLoader(data_j, batch_size=args.batch_size)
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)

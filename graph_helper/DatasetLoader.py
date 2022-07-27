@@ -29,7 +29,7 @@ class DatasetLoader:
             for k, v in graphdict.items():
                 all_graphs_t.extend(v)
 
-        elif dataset in ['constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4']:
+        elif dataset in ['constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4', 'constructedgraphs_2size', 'constructedgraphs_2features']:
             with open('/home/rigel/MDammann/PycharmProjects/CC4Graphs/baselines/{}.pkl'.format(dataset), 'rb') as handle:
                 constructedgraphs = pickle.load(handle)
 
@@ -68,13 +68,83 @@ class DatasetLoader:
                 if len(all_graphs_t)>10000:
                     break
                 data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
-                print(data_g)
                 all_graphs_t.append(data_g)
                 all_y.append(data_b.y.cpu().detach().numpy()[0,0])
 
+        elif dataset == 'TwitchVsDeezerEgos_balanced':
+            dataset_deezer_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                                             name='deezer_ego_nets')
+            dataset_twitch_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                                             name='twitch_egos')
+            max_degree = max(max_degree_undirected(dataset_deezer_pretransform), max_degree_undirected(dataset_twitch_pretransform))
+
+            dataset_deezer = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='deezer_ego_nets',
+                                transform=torch_geometric.transforms.OneHotDegree(
+                                    max_degree=max_degree))
+            loader_deezer = DataLoader(dataset_deezer, batch_size=1, shuffle=False)
+
+            it = iter(loader_deezer)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(0)
+
+
+            dataset_twitch = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='twitch_egos',
+                                transform=torch_geometric.transforms.OneHotDegree(
+                                    max_degree=max_degree))
+            loader_twitch = DataLoader(dataset_twitch, batch_size=1, shuffle=False)
+
+            it = iter(loader_twitch)
+            counter = 0
+            max_len = len(all_graphs_t)
+            for data_b in it:
+                if counter > max_len:
+                    break
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(1)
+                counter+=1
+
+        elif dataset == 'TwitchVsGithub_balanced':
+            dataset_github_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                                             name='github_stargazers')
+            dataset_twitch_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
+                                             name='twitch_egos')
+            max_degree = max(max_degree_undirected(dataset_github_pretransform), max_degree_undirected(dataset_twitch_pretransform))
+
+            dataset_github = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='github_stargazers',
+                                transform=torch_geometric.transforms.OneHotDegree(
+                                    max_degree=max_degree))
+            loader_github = DataLoader(dataset_github, batch_size=1, shuffle=False)
+
+            it = iter(loader_github)
+            for data_b in it:
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(0)
+
+
+            dataset_twitch = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name='twitch_egos',
+                                transform=torch_geometric.transforms.OneHotDegree(
+                                    max_degree=max_degree))
+            loader_twitch = DataLoader(dataset_twitch, batch_size=1, shuffle=False)
+
+            it = iter(loader_twitch)
+            counter = 0
+            max_len = len(all_graphs_t)
+            for data_b in it:
+                if counter > max_len:
+                    break
+                data_g = torch_geometric.data.Data(x=data_b.x, edge_index=data_b.edge_index, edge_attr=data_b.edge_attr, y=data_b.y)
+                all_graphs_t.append(data_g)
+                all_y.append(1)
+                counter+=1
+
+
         elif dataset in ['TWITTER-Real-Graph-Partial', 'Yeast']:
             dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/',
-                                name='TWITTER-Real-Graph-Partial')
+                                name=dataset)
             loader = DataLoader(dataset, batch_size=1, shuffle=False)
 
             it = iter(loader)
@@ -160,3 +230,11 @@ class DatasetLoader:
     def load_dataset_nx(self, dataset):
         graphs, all_y = self.__load_dataset(dataset)
         return [to_networkx(graph, to_undirected=True, node_attrs=["x"]) for graph in graphs], all_y
+
+    def load_dataset_nx_g2v(self, dataset):
+        graphs, all_y = self.__load_dataset(dataset)
+        ds_nx = [to_networkx(graph, to_undirected=True, node_attrs=["x"]) for graph in graphs]
+        for g in ds_nx:
+            for tpl in g.nodes(data=True):
+                tpl[1]["feature"] = tpl[1].pop("x")
+        return ds_nx, all_y
