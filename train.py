@@ -9,6 +9,7 @@ from modules.GraphTransform_All_TUD import GraphTransform_All_TUD
 from modules.GraphTransform_All_molhiv import GraphTransform_All_molhiv
 from modules.GraphTransform_NoNodeMask import GraphTransform_NoNodeMask
 from modules.gcn import GCN
+from modules.gcnsimplepool import GCNSimplePool
 from utils import yaml_config_hook, save_model
 from torch.utils import data
 from torch_geometric.datasets import TUDataset
@@ -44,7 +45,6 @@ def train():
         elif args.used_loss == "clusteronly":
             loss = loss_cluster
         else:
-            print("loss: default")
             loss = loss_instance + loss_cluster
         loss.backward()
         optimizer.step()
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         class_num = args.ceilo_n_clusters
         num_features = dataset.num_features
     elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg", "constructedgraphs_2size",
-                          "constructedgraphs_2features",
+                          "constructedgraphs_2features", "constructedgraphs_4nodedeg", "constructedgraphs_4size",
                           "MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
                           "twitch_egos", "Yeast", "TwitchVsDeezerEgos_balanced", "TwitchVsGithub_balanced"]:
         dl = DatasetLoader()
@@ -116,7 +116,12 @@ if __name__ == "__main__":
     avg_num_nodes = int(np.sum([len(g.x) for g in dataset])/len(dataset))
     print('ann', avg_num_nodes)
     # initialize model
-    gnn = GCN(num_features, avg_num_nodes=avg_num_nodes)
+    if args.gnn_model == "gcnsimplepool":
+        print(args.gnn_model)
+        gnn = GCNSimplePool(num_features, avg_num_nodes=avg_num_nodes)
+    else:
+        print("default gnn")
+        gnn = GCN(num_features, avg_num_nodes=avg_num_nodes)
     model = network.Network(gnn, args.feature_dim, class_num)
     model = model.to(args.device)
     # optimizer / loss
@@ -138,6 +143,8 @@ if __name__ == "__main__":
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)
     # train
     #_,_,data_i, data_j = GraphTransformer.generate_augmentations_i_j(dataset)
+    pytorch_total_params = sum(p.numel() for p in model.parameters())
+    print('params: ', pytorch_total_params)
     for epoch in range(args.start_epoch, args.epochs):
         '''
         c = list(zip(data_i, data_j))

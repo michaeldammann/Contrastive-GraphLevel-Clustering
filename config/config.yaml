@@ -8,16 +8,17 @@ augmentation_workers: 10
 batch_size: 512
 image_size: 224
 start_epoch: 0
-epochs: 300
-dataset:  "constructedgraphs_4" #constructedgraphs_2size / TwitchVsGithub_balanced / TwitchVsDeezerEgos_balanced / Yeast / twitch_egos / constructedgraphs_2nodedeg / constructedgraphs_2 / ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
+epochs: 500
+dataset:  "constructedgraphs_4" #"CeiloGraphs" #constructedgraphs_2size / TwitchVsGithub_balanced / TwitchVsDeezerEgos_balanced / Yeast / twitch_egos / constructedgraphs_2nodedeg / constructedgraphs_2 / ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
 device: "cpu" #"cpu" / "cuda"
 augmode: "default"#"subgraphonly"#"masknodesonly"#"permuteedgesonly"#"dropnodesonly"#"noaug"
-used_loss: "clusteronly"#"instanceonly"#"clusteronly"#"default"
+used_loss: "default"#"instanceonly"#"clusteronly"#"default"
+gnn_model: "default"#"gcnsimplepool"#default
 
 # model options
 resnet: "ResNet34" # ResNet18 / ResNet34 / ResNet50
 feature_dim: 64
-model_path: "save/constructedgraphs_4_default_clusteronly"
+model_path: "save/ceilographs16"
 reload: False
 
 # loss options

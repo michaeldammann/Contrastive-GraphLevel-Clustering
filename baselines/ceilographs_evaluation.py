@@ -25,14 +25,22 @@ from torch_geometric.loader import DataLoader
 import torch
 from adjust_labels import get_y_preds
 from sklearn.cluster import KMeans
+import pickle
 
 np.random.seed(42)
 random.seed(42)
 
+'''
+datasets = ['ceilographs4_features']
+'''
+datasets = ['ceilographs4_year', 'ceilographs4_month', 'ceilographs4_location', 'ceilographs4_season', 'ceilographs4_nodenumber', 'ceilographs4_edgenumber', 'ceilographs4_features',
+            'ceilographs8_year', 'ceilographs8_month', 'ceilographs8_location', 'ceilographs8_season', 'ceilographs8_nodenumber', 'ceilographs8_edgenumber', 'ceilographs8_features',
+            'ceilographs16_year', 'ceilographs16_month', 'ceilographs16_location', 'ceilographs16_season', 'ceilographs16_nodenumber', 'ceilographs16_edgenumber', 'ceilographs16_features']
 
 
-datasets = ['ogbg-molhiv', 'TWITTER-Real-Graph-Partial', 'MNISTSuperpixels', 'constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4', 'reddit_threads', 'twitch_egos', 'Yeast', 'TwitchVsDeezerEgos_balanced', 'TwitchVsGithub_balanced', 'constructedgraphs_2size', 'constructedgraphs_2features', 'constructedgraphs_4nodedeg', 'constructedgraphs_4size'] #'MNISTSuperpixels500', 'ogbg-ppa', 'ogbg-ppa10000',
-classes = [2, 2, 10, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 4]#, 37, 37, 2]
+classes = [4, 4, 4, 4, 4, 4, 4,
+           8, 8, 8, 8, 8, 8, 8,
+           16, 16, 16, 16, 16, 16, 16]
 augmodes = ["default", "dropnodesonly", "masknodesonly", "noaug", "permuteedgesonly", "subgraphonly", "default_clusteronly", "default_instanceonly", "subgraphanddropnodesonly", "default_gcnsimplepool"]
 
 models = ['G2VClust', 'NodeAvg', 'CC', 'FGSDClust', 'SFClust', 'GeoScatteringClust', 'GL2VClust', 'CCInstanceOnly', 'SFGL2VClust']
@@ -41,21 +49,7 @@ g2v_dim = 64
 dl = DatasetLoader()
 
 cc_basepath = '/home/rigel/MDammann/PycharmProjects/CC4Graphs/save/'
-dataset_dicts_cc = [{'num_features':9, 'start_epoch': 60, 'avg_num_nodes':25},
-                    {'num_features':1323, 'start_epoch': 50, 'avg_num_nodes':4},
-                    {'num_features':1, 'start_epoch':2070, 'avg_num_nodes':75},
-                    {'num_features':6, 'start_epoch':[300], 'avg_num_nodes':13},
-                    {'num_features':6, 'start_epoch': [200], 'avg_num_nodes':9},
-                    {'num_features':6, 'start_epoch':[100, 100, 80, 40, 100, 200, 260, 300, 400, 300], 'avg_num_nodes':13},
-                    {'num_features':94, 'start_epoch':280, 'avg_num_nodes':23},
-                    {'num_features':52, 'start_epoch':110, 'avg_num_nodes':29},
-                    {'num_features':74, 'start_epoch':100, 'avg_num_nodes':21},
-                    {'num_features':363, 'start_epoch':280, 'avg_num_nodes':26},
-                    {'num_features':756, 'start_epoch':[500, 500, 500, 500, 500, 500], 'avg_num_nodes':71},
-                    {'num_features':6, 'start_epoch':[200], 'avg_num_nodes':13},
-                    {'num_features':6, 'start_epoch':[200], 'avg_num_nodes':9},
-                    {'num_features':6, 'start_epoch':[300], 'avg_num_nodes':13},
-                    {'num_features':6, 'start_epoch': [300], 'avg_num_nodes':13}]
+dataset_dicts_cc = [{'num_features':16, 'start_epoch': [500], 'avg_num_nodes':8} for i in range(len(datasets))]
 cc_dict = {'feature_dim':64}
 '''
 ds_string = datasets[dataset_idx]
@@ -86,7 +80,7 @@ def get_embs_and_preds(models_idx, x_p, aug_idx):
             gnn = GCN(dataset_dicts_cc[dataset_idx]['num_features'], dataset_dicts_cc[dataset_idx]['avg_num_nodes'])
         #gnn = GCN(dataset_dicts_cc[dataset_idx]['num_features'], dataset_dicts_cc[dataset_idx]['avg_num_nodes'])
         model = network.Network(gnn, cc_dict['feature_dim'], classes[dataset_idx])
-        model_fp = os.path.join(cc_basepath, "{}_{}".format(datasets[dataset_idx], augmodes[aug_idx]),
+        model_fp = os.path.join(cc_basepath, "{}_{}".format(datasets[dataset_idx].split('_')[0], augmodes[aug_idx]),
                                 "checkpoint_{}.tar".format(dataset_dicts_cc[dataset_idx]['start_epoch'][aug_idx]))
         print(model_fp)
         model = load_model(model_fp, model)
@@ -98,6 +92,8 @@ def get_embs_and_preds(models_idx, x_p, aug_idx):
 
         all_embs= []
         y_pred = []
+        y_probs = []
+        y_probs_full = []
 
 
         for step in range(len(data_loader)):
@@ -108,6 +104,8 @@ def get_embs_and_preds(models_idx, x_p, aug_idx):
             c_i_np = c_i.cpu().detach().numpy()
             all_embs.extend(z_i_np)
             y_pred.extend(np.argmax(c_i_np, axis=1))
+            y_probs.extend(np.amax(c_i_np, axis=1))
+            y_probs_full.extend(c_i_np)
     elif models_idx==3:
         fgsdc = FGSDClust(g2v_dim)
         all_embs, y_pred = fgsdc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
@@ -149,7 +147,7 @@ def get_embs_and_preds(models_idx, x_p, aug_idx):
         sfgl2vc = SFGL2VClust(g2v_dim)
         all_embs, y_pred = sfgl2vc.kmeans_clust(classes[dataset_idx], datasets[dataset_idx])
 
-    return all_embs, y_pred
+    return all_embs, y_pred, y_probs, y_probs_full
 
 def mean_std_per_group(ary, group_ary, n_classes):
     n_nodes_grouped = []
@@ -197,7 +195,7 @@ def generate_umap_emb(all_embs, reducer):
 def viz_classes(umap_embedding, y, savedir):
     cdict_bin = {1:'red', 0:'grey'}
 
-    for class_i in range(classes[dataset_idx]):
+    for class_i in np.unique(y):#range(classes[dataset_idx]):
         plt.clf()
         y_bin = [1 if y_i == class_i else 0 for y_i in y]
         fig, ax = plt.subplots()
@@ -211,7 +209,9 @@ def viz_classes(umap_embedding, y, savedir):
         #plt.savefig(os.path.join('{}_{}'.format(datasets[dataset_idx],models[model_idx]),str(class_i)+'.png'))
 
 def viz_classes_allinone(umap_embedding, y, savedir):
-    cdict_bin = {0:'blue', 1:'red', 2:'green', 3:'orange'}
+    cdict_bin = {0:'blue', 1:'red', 2:'green', 3:'orange', 4:'cyan', 5:'magenta', 6:'yellow', 7:'darkred', 8:'teal',
+                 9:'darkviolet', 10:'chocolate', 11:'darkslategray', 12:'lime', 13:'darkgoldenrod', 14:'navajowhite',
+                 15:'pink'}
 
     plt.clf()
     y_bin = y
@@ -242,7 +242,9 @@ def viz_pred_classes(umap_embedding, y_pred, savedir):
         #plt.savefig(os.path.join('{}_{}'.format(datasets[dataset_idx],models[model_idx]),'cluster'+str(class_i)+'.png'))
 
 def viz_pred_classes_allinone(umap_embedding, y_pred, savedir):
-    cdict_bin = {0:'blue', 1:'red', 2:'green', 3:'orange'}
+    cdict_bin = {0:'blue', 1:'red', 2:'green', 3:'orange', 4:'cyan', 5:'magenta', 6:'yellow', 7:'darkred', 8:'teal',
+                 9:'darkviolet', 10:'chocolate', 11:'darkslategray', 12:'lime', 13:'darkgoldenrod', 14:'navajowhite',
+                 15:'pink'}
 
 
     plt.clf()
@@ -257,11 +259,11 @@ def viz_pred_classes_allinone(umap_embedding, y_pred, savedir):
     plt.savefig(os.path.join(savedir, 'cluster_allinone' + '.png'))
     #plt.savefig(os.path.join('{}_{}'.format(datasets[dataset_idx],models[model_idx]),'cluster'+str(class_i)+'.png'))
 
-def sample_umap_embeddings(umap_embedding, x_p, y_p, savedir, n_samples=30):
+def sample_umap_embeddings(umap_embedding, x_p, y_p, y_pred, savedir, n_samples=100):
     all_samples = []
     samples = random.sample(range(len(x_p)), n_samples)
     for sample in samples:
-        all_samples.append({"umap_dims": [str(umap_embedding[sample,0]), str(umap_embedding[sample,1])], "num_nodes": str(x_p[sample].num_nodes), "num_edges": str(x_p[sample].num_edges), "features": str(np.sum(x_p[sample].x.cpu().detach().numpy(), axis=0)), "class": str(y_p[sample])})
+        all_samples.append({"index":int(sample), "y_pred":int(y_pred[sample]), "umap_dims": [str(umap_embedding[sample,0]), str(umap_embedding[sample,1])], "num_nodes": str(x_p[sample].num_nodes), "num_edges": str(x_p[sample].num_edges), "features": str(np.sum(x_p[sample].x.cpu().detach().numpy(), axis=0)), "class": str(y_p[sample])})
     with open(os.path.join(savedir, 'umapsamples.json'), 'w') as f:
         json.dump(all_samples, f)
 '''
@@ -282,29 +284,35 @@ for model_idx in [0,4,6]:# [0,4,6,8]:#range(len(models)):
         umap_emb = generate_umap_emb(all_embs, reducer)
         viz_classes(umap_emb, y, savedir)
         viz_pred_classes(umap_emb, y_pred, savedir)
-
 '''
+
+def save_embs_preds_probs(umap_emb, all_embs, y_pred, y_probs, y_probs_full, savedir):
+    save_dict = {"umap_emb":umap_emb.tolist(), "all_embs":all_embs, "y_pred":y_pred, "y_probs":y_probs, "y_probs_full":y_probs_full}
+    with open(os.path.join(savedir, 'embs_preds_probs.pkl'), 'wb') as handle:
+        pickle.dump(save_dict, handle)
 
 ############### CC Evaluation ######################
 for model_idx in [2]:#range(len(models)):
     print('Model:', models[model_idx])
     reducer = umap.UMAP(random_state=42)
-    for dataset_idx in [14]:#range(3,6):#range(len(datasets)):
+    for dataset_idx in range(len(datasets)):
         Path('{}_{}'.format(datasets[dataset_idx], models[model_idx])).mkdir(exist_ok=True)
         print('Dataset:', datasets[dataset_idx])
         x, y = dl.load_dataset_nx(datasets[dataset_idx])
         x_p, y_p = dl.load_dataset_ptg(datasets[dataset_idx])
+        print(len(x_p), len(y_p))
         for aug_idx, augmode in enumerate(["default"]):
             aug_idx_temp = 0
             Path('{}_{}'.format(datasets[dataset_idx], models[model_idx]), augmode).mkdir(exist_ok=True)
-            all_embs, y_pred = get_embs_and_preds(model_idx, x_p, aug_idx_temp)
+            all_embs, y_pred, y_probs, y_probs_full = get_embs_and_preds(model_idx, x_p, aug_idx_temp)
             savedir=Path('{}_{}'.format(datasets[dataset_idx], models[model_idx]), augmode)
-            stats_dict = save_stats_dict(x_p, y, y_pred, savedir)
+            #stats_dict = save_stats_dict(x_p, y, y_pred, savedir)
             umap_emb = generate_umap_emb(all_embs, reducer)
-            sample_umap_embeddings(umap_emb, x_p, y_p, savedir)
+            sample_umap_embeddings(umap_emb, x_p, y_p, y_pred, savedir)
             viz_classes(umap_emb, y, savedir)
             viz_classes_allinone(umap_emb, y, savedir)
             viz_pred_classes(umap_emb, y_pred, savedir)
             viz_pred_classes_allinone(umap_emb, y_pred, savedir)
+            save_embs_preds_probs(umap_emb, all_embs, y_pred, y_probs, y_probs_full, savedir)
 
 

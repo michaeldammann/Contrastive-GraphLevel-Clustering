@@ -13,13 +13,32 @@ from torch.utils.data import ConcatDataset
 import torch_geometric.transforms as T
 from modules.graph_utils import max_degree_undirected
 
+
 class DatasetLoader:
+
+    def edgenumber_mapper(self, edgenumber):
+        if edgenumber == 0:
+            return 0
+        elif edgenumber in range(1,20):
+            return 1
+        elif edgenumber in range(20,40):
+            return 2
+        elif edgenumber in range(40,60):
+            return 3
+        elif edgenumber in range(60,80):
+            return 4
+        elif edgenumber in range(80,100):
+            return 5
+        elif edgenumber in range(100,120):
+            return 6
+        elif edgenumber in range(120,140):
+            return 7
 
     def __load_dataset(self, dataset):
         all_graphs_t = []
         all_y = []
 
-        if dataset == 'CeiloGraphs':
+        if dataset.lower()[0:11] == 'ceilographs': #'ceilographs4/8/16_year/month/location/season/nodenumber/none'
             graphfilename = '/home/rigel/MDammann/PycharmProjects/CC4Graphs/ceilo_graph_generation/graphs_processed.pickle'
 
             # load graphs
@@ -29,7 +48,63 @@ class DatasetLoader:
             for k, v in graphdict.items():
                 all_graphs_t.extend(v)
 
-        elif dataset in ['constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4', 'constructedgraphs_2size', 'constructedgraphs_2features']:
+
+            year_class_map = {"2014": 0, "2015": 1, "2016": 2, "2017": 3, "2018": 4}
+            month_class_map = {"01": 0, "02": 1, "03": 2, "04": 3, "05": 4, "06": 5, "07": 6, "08": 7, "09": 8, "10": 9, "11":10, "12":11}
+            seasons_class_map = {"01": 0, "02": 0, "03": 1, "04": 1, "05": 1, "06": 2, "07": 2, "08": 2, "09": 3, "10": 3,
+                               "11": 3, "12": 0}
+            location_class_map = {"hohenpeissenberg":0, "aachen":1, "hamburg":2, "hoyerswerda":3}
+            nodenumber_class_map = {1:0,
+                                    2:1, 3:1, 4:1, 5:1,
+                                    6:2, 7:2, 8:2, 9:2,
+                                    10:3, 11:3, 12:3, 13:3, 14:3,
+                                    15:4, 16:4, 17:4, 18:4, 19:4,
+                                    20:5, 21:5, 22:5, 23:5, 24:5,
+                                    25:6, 26:6, 27:6, 28:6, 29:6,
+                                    30:7, 31:7, 32:7}
+
+
+            '''
+            all_keys = graphdict.keys()
+            all_years = [filename[0:4] for filename in all_keys]
+            all_months = [filename[4:6] for filename in all_keys]
+            split_keys = [filename.split("_") for filename in all_keys]
+            all_locations = [split_key[1] for split_key in split_keys]
+
+            all_years_classes = [year_class_map[year] for year in all_years]
+            all_months_classes = [month_class_map[month] for month in all_months]
+            all_locations_classes = [location_class_map[location] for location in all_locations]
+            all_seasons_classes = [seasons_class_map[month] for month in all_months]
+            '''
+
+            dataset_mode = dataset.split('_')[1]
+
+            for k, v in graphdict.items():
+                k_year = k[0:4]
+                k_month = k[4:6]
+                split_key = k.split("_")
+                k_location = split_key[1]
+                for v_n in v:
+                    if dataset_mode == 'year':
+                        all_y.append(year_class_map[k_year])
+                    elif dataset_mode == 'month':
+                        all_y.append(month_class_map[k_month])
+                    elif dataset_mode == 'location':
+                        all_y.append(location_class_map[k_location])
+                    elif dataset_mode == 'season':
+                        all_y.append(seasons_class_map[k_month])
+                    elif dataset_mode == 'nodenumber':
+                        all_y.append(nodenumber_class_map[len(v_n.x.cpu().detach().numpy().tolist())])
+                    elif dataset_mode == 'edgenumber':
+                        all_y.append(self.edgenumber_mapper(int(len(v_n.edge_index.cpu().detach().numpy().tolist()[0])/2)))
+                    elif dataset_mode == "features":
+                        all_y.append(np.argmax(np.mean(v_n.x.cpu().detach().numpy()[:,:12], axis=0)))
+                    else:
+                        all_y.append(0)
+
+
+        elif dataset in ['constructedgraphs_2', 'constructedgraphs_2nodedeg', 'constructedgraphs_4', 'constructedgraphs_2size', 'constructedgraphs_2features',
+                         'constructedgraphs_4nodedeg', 'constructedgraphs_4size']:
             with open('/home/rigel/MDammann/PycharmProjects/CC4Graphs/baselines/{}.pkl'.format(dataset), 'rb') as handle:
                 constructedgraphs = pickle.load(handle)
 

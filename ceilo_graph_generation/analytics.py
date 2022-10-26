@@ -8,6 +8,9 @@ import torch_geometric
 from torch_geometric.datasets import TUDataset
 import numpy as np
 from scipy.stats import sem
+from graph_helper.DatasetLoader import DatasetLoader
+
+'''
 
 dataset = 'TWITTER-Real-Graph-Partial' #'ogbg-molhiv', 'CeiloGraphs', 'TWITTER-Real-Graph-Partial'
 
@@ -47,20 +50,29 @@ all_graphs_nx=[]
 for graph in all_graphs_t:
     all_graphs_nx.append(to_networkx(graph, to_undirected=True))
 
+'''
+
+dl = DatasetLoader()
+all_graphs_nx = dl.load_dataset_nx("ceilographs4_none")[0]
+all_graphs_t = dl.load_dataset_ptg("ceilographs4_none")[0]
+
+
 # #graphs
 print('#Graphs ',len(all_graphs_t))
 
 print('#Node Features ', len(all_graphs_t[0].x[1])) #len(graph.x), 16 for CeiloGraphs
 
+'''
 if dataset not in ['CeiloGraphs', 'DBLP_v1']:
     # #edge features
     print('#Edge Features ', len(all_graphs_t[0].edge_attr[1])) #len(graph.x), 16 for CeiloGraphs
-
+'''
 # average #nodes per graph
 all_n_nodes=[]
 for graph in all_graphs_nx:
     all_n_nodes.append(graph.number_of_nodes())
 print('Average #nodes: ', np.mean(all_n_nodes), ', std: ', np.std(all_n_nodes), ', sem: ', sem(all_n_nodes))
+print('Min #nodes:', np.min(all_n_nodes), ', max nodes:', np.max(all_n_nodes))
 
 
 # average #edges per graph
@@ -68,6 +80,7 @@ all_n_edges=[]
 for graph in all_graphs_nx:
     all_n_edges.append(graph.number_of_edges())
 print('Average #edges: ', np.mean(all_n_edges), ', std: ', np.std(all_n_edges), ', sem: ', sem(all_n_edges))
+print('Min #edges:', np.min(all_n_edges), ', max edges:', np.max(all_n_edges))
 
 # average node degree
 all_n_degrees = []
