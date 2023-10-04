@@ -1,31 +1,16 @@
 import os
 import numpy as np
 import torch
-import torchvision
 import argparse
-from modules import transform, resnet, network, contrastive_loss
+from modules import network, contrastive_loss
 from modules.GraphTransform_All import GraphTransform_All
-from modules.GraphTransform_All_TUD import GraphTransform_All_TUD
-from modules.GraphTransform_All_molhiv import GraphTransform_All_molhiv
-from modules.GraphTransform_NoNodeMask import GraphTransform_NoNodeMask
 from modules.gcn import GCN
-from modules.gcnsimplepool import GCNSimplePool
 from utils import yaml_config_hook, save_model
-from torch.utils import data
-from torch_geometric.datasets import TUDataset
-from torch_geometric.loader import DataLoader
-from modules.graph_utils import max_degree_undirected
-import torch_geometric
 import random
-from copy import deepcopy
-from torch.utils.data import ConcatDataset
-from torch_geometric.datasets import MNISTSuperpixels, GNNBenchmarkDataset,  TUDataset
-import time
-from datasets.CeiloGraphs import CeiloGraphs
-from ogb.graphproppred import PygGraphPropPredDataset
-from graph_helper.DatasetLoader import DatasetLoader
+
+from datasetloader.DatasetLoader import DatasetLoader
 from pathlib import Path
-import multiprocessing as mp
+
 
 def train():
     loss_epoch = 0
@@ -69,29 +54,22 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    if args.dataset in ["MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
-                          "twitch_egos", "Yeast", "TwitchVsDeezerEgos_balanced", "TwitchVsGithub_balanced"]:
-        dl = DatasetLoader(args.dataset_savedir)
+    if args.dataset in ["ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "Yeast", "PROTEINS", "DD",
+                        "reddit_threads", "twitch_egos", "REDDIT-BINARY", "TRIANGLES", "MNISTSuperpixels"]:
+        dl = DatasetLoader(args.dataset_dir)
         dataset, y_p = dl.load_dataset_ptg(args.dataset)
-        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
-                                              mask_nodes_ratio=0.2, batch_size=args.batch_size)
-        class_num = len(np.unique(y_p)) if args.n_clusters > 0 else args.n_clusters
+        GraphTransformer = GraphTransform_All(drop_nodes_ratio=args.drop_nodes_ratio,
+                                              subgraph_ratio=args.subgraph_ratio,
+                                              permute_edges_ratio=args.permute_edges_ratio,
+                                              mask_nodes_ratio=args.mask_nodes_ratio, batch_size=args.batch_size)
+        class_num = len(np.unique(y_p)) if args.n_clusters < 0 else args.n_clusters
         num_features = len(dataset[0].x[0].cpu().detach().numpy())
-        print(class_num, num_features)
-        print(len(dataset))
     else:
         raise NotImplementedError
     epoch_stats = Path(args.model_path, 'epoch_stats.txt')
     epoch_stats.touch(exist_ok=True)
-    avg_num_nodes = int(np.sum([len(g.x) for g in dataset])/len(dataset))
-    print('ann', avg_num_nodes)
     # initialize model
-    if args.gnn_model == "gcnsimplepool":
-        print(args.gnn_model)
-        gnn = GCNSimplePool(num_features, avg_num_nodes=avg_num_nodes)
-    else:
-        print("default gnn")
-        gnn = GCN(num_features, avg_num_nodes=avg_num_nodes)
+    gnn = GCN(num_features)
     model = network.Network(gnn, args.feature_dim, class_num)
     model = model.to(args.device)
     # optimizer / loss
@@ -109,38 +87,25 @@ if __name__ == "__main__":
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)
 
     pytorch_total_params = sum(p.numel() for p in model.parameters())
-    print('params: ', pytorch_total_params)
     for epoch in range(args.start_epoch, args.epochs):
-        start_time = time.time()
-
         if args.augmode == "subgraphonly":
-            print("AUGMODE", args.augmode)
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_subgraphonly(dataset)
         elif args.augmode == "masknodesonly":
-            print("AUGMODE", args.augmode)
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_masknodesonly(dataset)
         elif args.augmode == "dropnodesonly":
-            print("AUGMODE", args.augmode)
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_dropnodesonly(dataset)
         elif args.augmode == "permuteedgesonly":
-            print("AUGMODE", args.augmode)
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_permuteedgesonly(dataset)
         elif args.augmode == "noaug":
-            print("AUGMODE", args.augmode)
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_noaug(dataset)
-        elif args.augmode == "subgraphanddropnodesonly":
-            print("AUGMODE", args.augmode)
-            data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j_subgraphanddropnodesonly(dataset)
         else:
-            print("AUGMODE all")
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
-        print("--- %s seconds ---" % (time.time() - start_time))
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)
         lr = optimizer.param_groups[0]["lr"]
         loss_epoch = train()
         with open(Path(args.model_path, 'epoch_stats.txt'), "a+") as f:
             f.write(f"Epoch [{epoch}/{args.epochs}]\t Loss: {loss_epoch / len(data_loader_i)}\n")
-        if epoch % 10 == 0:
+        if epoch % args.checkpoint_interval == 0:
             print('Saving')
             save_model(args, model, optimizer, epoch)
         print(f"Epoch [{epoch}/{args.epochs}]\t Loss: {loss_epoch / len(data_loader_i)}")

@@ -251,34 +251,6 @@ class GraphTransform_All:
 
       return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
 
-  def generate_augmentations_i_j_subgraphanddropnodesonly(self, dataset):
-      all_data = [elem for elem in dataset]
-      random.shuffle(all_data)
-
-      #Determine cutoff index to avoid incomplete batches
-      cutoff_at = len(all_data)-(len(all_data)%self.batch_size)
-      all_data = all_data[:cutoff_at]
-
-      all_data_i, all_data_j = deepcopy(all_data), deepcopy(all_data)
-
-      for idx, elem in enumerate(all_data):
-          is_subgraph = random.choice([False,True])
-          ri, rj = random.choices([0,1], weights=(80, 20), k=1)[0], random.choices([0,1], weights=(80, 20), k=1)[0]
-          if ri == 0:
-              if is_subgraph:
-                all_data_i[idx]=self.subgraph(all_data_i[idx], self.subgraph_ratio)
-              else:
-                all_data_i[idx] = self.drop_nodes(all_data_i[idx], self.drop_nodes_ratio)
-          # elif ri == 1: identity
-
-          if rj == 0:
-              if is_subgraph:
-                all_data_j[idx]=self.subgraph(all_data_j[idx], self.subgraph_ratio)
-              else:
-                all_data_j[idx] = self.drop_nodes(all_data_j[idx], self.drop_nodes_ratio)
-          # elif rj == 1: identity
-
-      return (DataLoader(all_data_i, batch_size=self.batch_size), DataLoader(all_data_j, batch_size=self.batch_size), all_data_i, all_data_j)
 
   def generate_augmentations_i_j(self, dataset):
       all_data = [elem for elem in dataset]

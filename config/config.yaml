@@ -1,19 +1,22 @@
 # general
 seed: 42
-workers: 8
 dataset_dir: "./datasets"
-augmentation_workers: 10
 
 # train options
 batch_size: 512
-image_size: 224
 start_epoch: 0
-epochs: 500
+epochs: 100
 dataset:  "PROTEINS" # Options are: "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "Yeast", "PROTEINS", "DD", "reddit_threads", "twitch_egos", "REDDIT-BINARY", "TRIANGLES", "MNISTSuperpixels"
 device: "cpu" # Options are: "cpu", "cuda"
-augmode: "default" # Options are: subgraphonly", "masknodesonly", "permuteedgesonly", "dropnodesonly", "noaug"
 used_loss: "default" # Options are: "instanceonly", "clusteronly", "default"
-gnn_model: "default" # Options are: "default", "gcnsimplepool"
+checkpoint_interval: 10
+
+#augmentation settings for contrastive learning
+augmode: "default" # Options are: "default", "subgraphonly", "masknodesonly", "permuteedgesonly", "dropnodesonly", "noaug"
+drop_nodes_ratio: 0.2
+subgraph_ratio: 0.8
+permute_edges_ratio: 0.2
+mask_nodes_ratio: 0.2
 
 # model options
 feature_dim: 64
@@ -26,5 +29,9 @@ learning_rate: 0.001
 weight_decay: 0.
 instance_temperature: 0.5
 cluster_temperature: 1.0
+
+# inference
+inference_epoch: 100
+inference_save_path: "results"
 
 

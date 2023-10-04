@@ -22,24 +22,7 @@ class Network(nn.Module):
         )
 
     def forward(self, x_i, x_j):
-        '''
-        print('x_i')
-        print(x_i)
-        print(x_i.x.float())
-        print(x_i.x.float().cpu().detach().numpy().shape)
-        print(x_i.edge_index)
-        print(x_i.edge_index.cpu().detach().numpy().shape)
-        print(x_i.batch)
-        print(x_i.batch.cpu().detach().numpy().shape)
-        print('x_j')
-        print(x_j)
-        print(x_j.x.float())
-        print(x_j.x.float().cpu().detach().numpy().shape)
-        print(x_j.edge_index)
-        print(x_j.edge_index.cpu().detach().numpy().shape)
-        print(x_j.batch)
-        print(x_j.batch.cpu().detach().numpy().shape)
-        '''
+
         h_i = self.gnn(x_i.x.float(), x_i.edge_index, x_i.batch)
         h_j = self.gnn(x_j.x.float(), x_j.edge_index, x_j.batch)
 
