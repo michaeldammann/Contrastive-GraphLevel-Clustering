@@ -33,7 +33,6 @@ def train():
         x_i = next(data_loader_i)
         x_j = next(data_loader_j)
 
-        #print(x_i.x.float(), x_i.edge_index, x_i.batch)
         optimizer.zero_grad()
         x_i = x_i.to(args.device)
         x_j = x_j.to(args.device)
@@ -69,48 +68,19 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(args.seed)
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
-    if args.dataset == "CeiloGraphs":
-        dataset = CeiloGraphs(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', graphpicklepath=args.graphpicklepath)
-        GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
-                                              mask_nodes_ratio=0.2, batch_size=args.batch_size)
-        class_num = args.ceilo_n_clusters
-        num_features = dataset.num_features
-    elif args.dataset in ["constructedgraphs_2", "constructedgraphs_4", "constructedgraphs_2nodedeg", "constructedgraphs_2size",
-                          "constructedgraphs_2features", "constructedgraphs_4nodedeg", "constructedgraphs_4size",
-                          "MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
+
+    if args.dataset in ["MNISTSuperpixels", "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "reddit_threads",
                           "twitch_egos", "Yeast", "TwitchVsDeezerEgos_balanced", "TwitchVsGithub_balanced"]:
-        dl = DatasetLoader()
+        dl = DatasetLoader(args.dataset_savedir)
         dataset, y_p = dl.load_dataset_ptg(args.dataset)
         GraphTransformer = GraphTransform_All(drop_nodes_ratio=0.2, subgraph_ratio=0.8, permute_edges_ratio=0.2,
                                               mask_nodes_ratio=0.2, batch_size=args.batch_size)
-        class_num = len(np.unique(y_p))
+        class_num = len(np.unique(y_p)) if args.n_clusters > 0 else args.n_clusters
         num_features = len(dataset[0].x[0].cpu().detach().numpy())
         print(class_num, num_features)
         print(len(dataset))
     else:
         raise NotImplementedError
-    '''
-    else:
-        print("!!!!!!!!!Using generic TUDataset loader!!!!!!!!!")
-        dataset_pretransform = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-        dataset = TUDataset(root='/home/rigel/MDammann/PycharmProjects/CC4Graphs/datasets/', name=args.dataset,
-                            transform=torch_geometric.transforms.OneHotDegree(
-                                max_degree=max_degree_undirected(dataset_pretransform)))
-        GraphTransformer = GraphTransform_All_TUD(drop_nodes_ratio=0.1, subgraph_ratio=0.9, permute_edges_ratio=0.1,
-                                              mask_nodes_ratio=0.1, batch_size=args.batch_size)
-
-        class_num = dataset.num_classes
-        num_features = dataset.num_features
-    '''
-    '''
-    # prepare data
-    if args.dataset == "NCI1":
-        dataset = TUDataset(root='/home/md/PycharmProjects/CC4Graphs/datasets/', name=args.dataset)
-        class_num = dataset.num_classes
-        print(class_num)
-
-    '''
-
     epoch_stats = Path(args.model_path, 'epoch_stats.txt')
     epoch_stats.touch(exist_ok=True)
     avg_num_nodes = int(np.sum([len(g.x) for g in dataset])/len(dataset))
@@ -132,25 +102,15 @@ if __name__ == "__main__":
         model.load_state_dict(checkpoint['net'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         args.start_epoch = checkpoint['epoch'] + 1
-        '''
-        model_fp = os.path.join(args.model_path, "checkpoint_{}.tar".format(args.start_epoch))
-        model = torch.load(model_fp)
-        args.start_epoch += 1
-        '''
+
     loss_device = torch.device(args.device)
     criterion_instance = contrastive_loss.InstanceLoss(args.batch_size, args.instance_temperature, loss_device).to(
         loss_device)
     criterion_cluster = contrastive_loss.ClusterLoss(class_num, args.cluster_temperature, loss_device).to(loss_device)
-    # train
-    #_,_,data_i, data_j = GraphTransformer.generate_augmentations_i_j(dataset)
+
     pytorch_total_params = sum(p.numel() for p in model.parameters())
     print('params: ', pytorch_total_params)
     for epoch in range(args.start_epoch, args.epochs):
-        '''
-        c = list(zip(data_i, data_j))
-        random.shuffle(c)
-        data_i, data_j = zip(*c)
-        '''
         start_time = time.time()
 
         if args.augmode == "subgraphonly":
@@ -175,7 +135,6 @@ if __name__ == "__main__":
             print("AUGMODE all")
             data_loader_i, data_loader_j, _, _ = GraphTransformer.generate_augmentations_i_j(dataset)
         print("--- %s seconds ---" % (time.time() - start_time))
-        #data_loader_i, data_loader_j = DataLoader(data_i, batch_size=args.batch_size), DataLoader(data_j, batch_size=args.batch_size)
         data_loader_i, data_loader_j = iter(data_loader_i), iter(data_loader_j)
         lr = optimizer.param_groups[0]["lr"]
         loss_epoch = train()

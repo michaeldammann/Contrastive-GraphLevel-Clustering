@@ -9,24 +9,22 @@ batch_size: 512
 image_size: 224
 start_epoch: 0
 epochs: 500
-dataset:  "constructedgraphs_4" #"CeiloGraphs" #constructedgraphs_2size / TwitchVsGithub_balanced / TwitchVsDeezerEgos_balanced / Yeast / twitch_egos / constructedgraphs_2nodedeg / constructedgraphs_2 / ogbg-molhiv / CeiloGraphs # MNISTSuperpixels / reddit_threads / COLLAB / TWITTER-Real-Graph-Partial / DBLP_v1 / MCF-7 / PROTEINS / REDDIT-BINARY / NCI1 / CIFAR-10 / CIFAR-100 / STL-10 / ImageNet-10 / ImageNet-dogs / tiny-ImageNet
-device: "cpu" #"cpu" / "cuda"
-augmode: "default"#"subgraphonly"#"masknodesonly"#"permuteedgesonly"#"dropnodesonly"#"noaug"
-used_loss: "default"#"instanceonly"#"clusteronly"#"default"
-gnn_model: "default"#"gcnsimplepool"#default
+dataset:  "PROTEINS" # Options are: "ogbg-molhiv", "ogbg-ppa", "TWITTER-Real-Graph-Partial", "Yeast", "PROTEINS", "DD", "reddit_threads", "twitch_egos", "REDDIT-BINARY", "TRIANGLES", "MNISTSuperpixels"
+device: "cpu" # Options are: "cpu", "cuda"
+augmode: "default" # Options are: subgraphonly", "masknodesonly", "permuteedgesonly", "dropnodesonly", "noaug"
+used_loss: "default" # Options are: "instanceonly", "clusteronly", "default"
+gnn_model: "default" # Options are: "default", "gcnsimplepool"
 
 # model options
-resnet: "ResNet34" # ResNet18 / ResNet34 / ResNet50
 feature_dim: 64
-model_path: "save/ceilographs16"
+model_path: "save/modelname"
 reload: False
+n_clusters: -1 # Options are -1 for inferring n_clusters from a given labeled dataset or a positive integer
 
 # loss options
-learning_rate: 0.001 # ->0.001<- standard
+learning_rate: 0.001
 weight_decay: 0.
-instance_temperature: 0.5 #0.5
-cluster_temperature: 1.0 #1.0
+instance_temperature: 0.5
+cluster_temperature: 1.0
 
-# ceilo options
-graphpicklepath: "/home/rigel/MDammann/PycharmProjects/CC4Graphs/ceilo_graph_generation/graphs_processed.pickle"
-ceilo_n_clusters: 8
+
